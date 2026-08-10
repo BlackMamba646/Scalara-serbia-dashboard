@@ -1,0 +1,64 @@
+sources:
+  - name: ukgc
+    display_name: "UK Gambling Commission"
+    source_type: regulator
+    jurisdiction: GB
+    reliability: primary
+    connector: ukgc
+    crawl_frequency_hours: 24
+    enabled: true
+    config:
+      base_url: "https://www.gamblingcommission.gov.uk/downloads"
+      datasets:
+        - businesses
+        - licences
+        - trading_names
+        - domains
+
+  - name: gcgra
+    display_name: "Gaming Control & Regulatory Authority (UAE)"
+    source_type: regulator
+    jurisdiction: AE
+    reliability: primary
+    connector: gcgra
+    crawl_frequency_hours: 72
+    enabled: true
+    config:
+      url: "https://www.gcgra.gov.ae/en/licensees"
+      requires_playwright: true
+
+  - name: igb
+    display_name: "iGaming Business"
+    source_type: news
+    jurisdiction: null
+    reliability: secondary
+    connector: igb
+    crawl_frequency_hours: 6
+    enabled: true
+    config:
+      rss_url: "https://igamingbusiness.com/feed/"
+      web_url: "https://igamingbusiness.com/news/"
+
+  - name: gaming_intelligence
+    display_name: "Gaming Intelligence"
+    source_type: news
+    jurisdiction: null
+    reliability: secondary
+    connector: gaming_intelligence
+    crawl_frequency_hours: 6
+    enabled: true
+    config:
+      rss_url: "https://gamingintelligence.com/feed/"
+      web_url: "https://gamingintelligence.com/"
+
+  - name: sbc
+    display_name: "SBC News"
+    source_type: news
+    jurisdiction: null
+    reliability: secondary
+    connector: sbc
+    crawl_frequency_hours: 6
+    enabled: true
+    config:
+      rss_url: "https://sbcnews.co.uk/feed/"
+      web_url: "https://sbcnews.co.uk/"

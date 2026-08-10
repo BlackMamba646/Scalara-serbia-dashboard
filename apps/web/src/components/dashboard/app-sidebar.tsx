@@ -16,6 +16,7 @@ import {
   Settings,
   BarChart3,
 } from "lucide-react";
+import { ScalaraLogo } from "@/components/scalara-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -71,10 +72,8 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Radar className="h-4 w-4" />
-          </div>
+        <Link href="/" className="flex items-center gap-2.5">
+          <ScalaraLogo className="h-8 w-8 shrink-0" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold tracking-tight">
               Scalara Radar
