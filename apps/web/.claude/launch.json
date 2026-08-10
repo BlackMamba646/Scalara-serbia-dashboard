@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "scalara-radar",
+      "runtimeExecutable": "/Users/vanshjaipuria/.local/share/fnm/fnm",
+      "runtimeArgs": ["exec", "--using=20", "npm", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}
