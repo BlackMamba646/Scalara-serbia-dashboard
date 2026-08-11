@@ -1,24 +1,97 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { SEED_OPPORTUNITIES } from "@/lib/seed-data";
+
+const stages = [
+  { key: "new", label: "New", color: "bg-primary" },
+  { key: "review", label: "Review", color: "bg-chart-2" },
+  { key: "qualified", label: "Qualified", color: "bg-chart-3" },
+  { key: "contacted", label: "Contacted", color: "bg-chart-4" },
+  { key: "meeting", label: "Meeting", color: "bg-chart-5" },
+  { key: "watch", label: "Watching", color: "bg-muted-foreground" },
+] as const;
+
+const recommendationStyles: Record<string, string> = {
+  pursue: "bg-primary/10 text-primary border-primary/30",
+  qualify: "bg-warning/10 text-warning border-warning/30",
+  monitor: "bg-muted text-muted-foreground border-border",
+};
 
 export default function PipelinePage() {
+  const opportunitiesByStage = stages.map((stage) => ({
+    ...stage,
+    items: SEED_OPPORTUNITIES.filter((o) => o.status === stage.key),
+  }));
+
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Pipeline</h1>
         <p className="text-sm text-muted-foreground">
-          Sales pipeline and opportunity tracking
+          Sales pipeline — drag opportunities between stages
         </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Sales Pipeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Kanban-style pipeline management will be built in Phase 9.
-          </p>
-        </CardContent>
-      </Card>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {stages.map((stage) => {
+          const count = SEED_OPPORTUNITIES.filter((o) => o.status === stage.key).length;
+          return (
+            <Card key={stage.key}>
+              <CardContent className="p-3 text-center">
+                <div className={`h-1 w-8 rounded-full mx-auto mb-2 ${stage.color}`} />
+                <div className="text-lg font-bold tabular-nums">{count}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{stage.label}</div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {opportunitiesByStage.map((stage) => (
+          <div key={stage.key} className="min-w-64 flex-1">
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`h-2 w-2 rounded-full ${stage.color}`} />
+              <span className="text-sm font-medium">{stage.label}</span>
+              <Badge variant="secondary" className="text-[10px] ml-auto">{stage.items.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {stage.items.map((opp) => (
+                <Card key={opp.id} className="cursor-pointer hover:bg-accent/30 transition-colors">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">{opp.flag}</span>
+                      <span className="text-sm font-medium truncate">{opp.company}</span>
+                    </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant="outline" className={`text-[9px] ${recommendationStyles[opp.recommendation]}`}>
+                        {opp.recommendation}
+                      </Badge>
+                      <span className="text-lg font-bold tabular-nums text-primary">{opp.score}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      {opp.signals.slice(0, 2).map((s) => (
+                        <Badge key={s} variant="secondary" className="text-[8px] font-mono">{s}</Badge>
+                      ))}
+                      {opp.signals.length > 2 && (
+                        <Badge variant="secondary" className="text-[8px]">+{opp.signals.length - 2}</Badge>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground line-clamp-2">{opp.summary}</p>
+                  </CardContent>
+                </Card>
+              ))}
+              {stage.items.length === 0 && (
+                <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
+                  No opportunities
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
