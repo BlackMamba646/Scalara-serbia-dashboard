@@ -31,6 +31,10 @@ SIGNAL_TYPES = {
     "regulatory_action",
     "compliance_issue",
     "expansion",
+    "soft_launch",
+    "platform_pain",
+    "platform_migration",
+    "payments_need",
 }
 
 LICENSE_STATUS_SIGNALS = {
@@ -71,6 +75,10 @@ SIGNAL_WEIGHTS = {
     "regulatory_action": 0.6,
     "compliance_issue": 0.55,
     "expansion": 0.8,
+    "soft_launch": 0.85,
+    "platform_pain": 0.9,
+    "platform_migration": 0.95,
+    "payments_need": 0.8,
 }
 
 
@@ -82,6 +90,12 @@ def extract_signals_from_change(change: ChangeEvent) -> list[dict[str, Any]]:
 
     if change.entity_type == "news_article":
         signals.extend(_extract_news_signals(change))
+
+    if change.entity_type == "ct_certificate":
+        signals.extend(_extract_ct_signals(change))
+
+    if change.entity_type in ("casino_reputation", "casino_complaint"):
+        signals.extend(_extract_complaint_signals(change))
 
     return signals
 
@@ -253,6 +267,98 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
             source_url=data.get("url", change.source_url),
             entity_name="",
         ))
+
+    return signals
+
+
+PAYMENT_COMPLAINT_KEYWORDS = [
+    "payment", "withdrawal", "payout", "deposit", "cashout",
+    "bank", "wire", "e-wallet", "crypto",
+]
+
+PLATFORM_COMPLAINT_KEYWORDS = [
+    "software", "bug", "crash", "glitch", "error", "loading",
+    "platform", "technical", "game", "frozen", "slow",
+]
+
+
+def _extract_ct_signals(change: ChangeEvent) -> list[dict[str, Any]]:
+    if change.event_type != "new":
+        return []
+
+    data = change.new_value if isinstance(change.new_value, dict) else {}
+    domain = data.get("domain", change.entity_id or "")
+
+    return [_make_signal(
+        signal_type="soft_launch",
+        title=f"New gambling domain detected: {domain}",
+        description=f"TLS certificate issued for {domain} — possible soft launch or new brand.",
+        confidence=0.6,
+        evidence_type="inference",
+        source_url=change.source_url or "",
+        entity_name=domain,
+        metadata=data,
+    )]
+
+
+def _extract_complaint_signals(change: ChangeEvent) -> list[dict[str, Any]]:
+    signals: list[dict[str, Any]] = []
+    data = change.new_value if isinstance(change.new_value, dict) else {}
+    casino_name = data.get("casino_name", change.entity_id or "")
+
+    if change.entity_type == "casino_reputation" and change.event_type == "modified":
+        signals.append(_make_signal(
+            signal_type="platform_pain",
+            title=f"Reputation change: {casino_name}",
+            description=f"Rating/safety index changed for {casino_name} — may indicate platform or service issues.",
+            confidence=0.65,
+            evidence_type="inference",
+            source_url=change.source_url or "",
+            entity_name=casino_name,
+            metadata=data,
+        ))
+        return signals
+
+    if change.entity_type == "casino_complaint" and change.event_type == "new":
+        category = data.get("category", "").lower()
+        title = data.get("title", "").lower()
+        text = f"{category} {title}"
+
+        if any(kw in text for kw in PAYMENT_COMPLAINT_KEYWORDS):
+            signals.append(_make_signal(
+                signal_type="payments_need",
+                title=f"Payment complaint: {casino_name}",
+                description=f"Payment-related complaint filed against {casino_name}.",
+                confidence=0.7,
+                evidence_type="inference",
+                source_url=change.source_url or "",
+                entity_name=casino_name,
+                metadata=data,
+            ))
+
+        if any(kw in text for kw in PLATFORM_COMPLAINT_KEYWORDS):
+            signals.append(_make_signal(
+                signal_type="platform_migration",
+                title=f"Platform complaint: {casino_name}",
+                description=f"Technical/platform complaint filed against {casino_name} — may be open to migration.",
+                confidence=0.6,
+                evidence_type="inference",
+                source_url=change.source_url or "",
+                entity_name=casino_name,
+                metadata=data,
+            ))
+
+        if not signals:
+            signals.append(_make_signal(
+                signal_type="platform_pain",
+                title=f"Complaint filed: {casino_name}",
+                description=f"New complaint against {casino_name}: {data.get('title', '')}",
+                confidence=0.5,
+                evidence_type="inference",
+                source_url=change.source_url or "",
+                entity_name=casino_name,
+                metadata=data,
+            ))
 
     return signals
 

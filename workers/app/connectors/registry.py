@@ -2,6 +2,9 @@ from app.connectors.base import BaseConnector
 from app.connectors.ukgc import UKGCConnector
 from app.connectors.gcgra import GCGRAConnector
 from app.connectors.news import IGBConnector, GamingIntelligenceConnector, SBCConnector
+from app.connectors.crtsh import CrtShConnector
+from app.connectors.casino_guru import CasinoGuruConnector
+from app.connectors.askgamblers import AskGamblersConnector
 
 CONNECTOR_REGISTRY: dict[str, type[BaseConnector]] = {
     "ukgc": UKGCConnector,
@@ -9,6 +12,9 @@ CONNECTOR_REGISTRY: dict[str, type[BaseConnector]] = {
     "igb": IGBConnector,
     "gaming_intelligence": GamingIntelligenceConnector,
     "sbc": SBCConnector,
+    "crtsh": CrtShConnector,
+    "casino_guru": CasinoGuruConnector,
+    "askgamblers": AskGamblersConnector,
 }
 
 

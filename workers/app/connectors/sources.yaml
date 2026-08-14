@@ -62,3 +62,42 @@ sources:
     config:
       rss_url: "https://sbcnews.co.uk/feed/"
       web_url: "https://sbcnews.co.uk/"
+
+  - name: crtsh
+    display_name: "crt.sh Certificate Transparency"
+    source_type: search
+    jurisdiction: null
+    reliability: primary
+    connector: crtsh
+    crawl_frequency_hours: 12
+    enabled: true
+    config:
+      api_url: "https://crt.sh/"
+      search_terms:
+        - "%.casino"
+        - "%.bet"
+        - "%slots%"
+        - "%poker%online%"
+        - "%sportsbook%"
+
+  - name: casino_guru
+    display_name: "Casino Guru"
+    source_type: company
+    jurisdiction: null
+    reliability: secondary
+    connector: casino_guru
+    crawl_frequency_hours: 24
+    enabled: true
+    config:
+      base_url: "https://www.casino.guru"
+
+  - name: askgamblers
+    display_name: "AskGamblers"
+    source_type: company
+    jurisdiction: null
+    reliability: secondary
+    connector: askgamblers
+    crawl_frequency_hours: 24
+    enabled: true
+    config:
+      base_url: "https://www.askgamblers.com"

@@ -29,6 +29,10 @@ const signalTypeColors: Record<string, string> = {
   ACQUISITION: "bg-chart-2/10 text-chart-2 border-chart-2/30",
   REGULATORY_CHANGE: "bg-warning/10 text-warning border-warning/30",
   NEW_PRODUCT: "bg-success/10 text-success border-success/30",
+  SOFT_LAUNCH: "bg-chart-5/10 text-chart-5 border-chart-5/30",
+  PLATFORM_PAIN: "bg-destructive/10 text-destructive border-destructive/30",
+  PLATFORM_MIGRATION: "bg-destructive/10 text-destructive border-destructive/30",
+  PAYMENTS_NEED: "bg-chart-2/10 text-chart-2 border-chart-2/30",
 };
 
 const sourceLabels: Record<string, { label: string; icon: string }> = {

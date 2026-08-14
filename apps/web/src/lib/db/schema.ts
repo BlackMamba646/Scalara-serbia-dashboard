@@ -94,6 +94,10 @@ export const signalTypeEnum = pgEnum("signal_type", [
   "regulatory_change",
   "new_product",
   "new_tech_partner",
+  "soft_launch",
+  "platform_pain",
+  "platform_migration",
+  "payments_need",
 ]);
 
 export const sourceTypeEnum = pgEnum("source_type", [
