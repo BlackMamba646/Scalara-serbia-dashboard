@@ -3,7 +3,6 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://scalara:scalara_dev_password@localhost:5432/scalara_radar"
-    redis_url: str = "redis://localhost:6379"
 
     postgres_host: str = "localhost"
     postgres_port: int = 5432

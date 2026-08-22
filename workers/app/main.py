@@ -99,3 +99,31 @@ async def seed_database() -> dict[str, Any]:
         "failed_connectors": failed,
         "details": results,
     }
+
+
+@app.post("/cron/regulators")
+async def cron_regulators() -> list[dict]:
+    """Render cron — crawl UKGC + GCGRA daily."""
+    from app.tasks.scheduler import crawl_regulators
+    return await crawl_regulators()
+
+
+@app.post("/cron/news")
+async def cron_news() -> list[dict]:
+    """Render cron — crawl news sources every 6h."""
+    from app.tasks.scheduler import crawl_news
+    return await crawl_news()
+
+
+@app.post("/cron/ct")
+async def cron_ct() -> dict:
+    """Render cron — crawl crt.sh every 12h."""
+    from app.tasks.scheduler import crawl_ct_logs
+    return await crawl_ct_logs()
+
+
+@app.post("/cron/complaints")
+async def cron_complaints() -> list[dict]:
+    """Render cron — crawl Casino Guru + AskGamblers daily."""
+    from app.tasks.scheduler import crawl_complaints
+    return await crawl_complaints()
