@@ -210,6 +210,71 @@ export const fundingRoundEnum = pgEnum("funding_round", [
   "other",
 ]);
 
+// ─── CRM Enums ──────────────────────────────────────────
+
+export const lifecycleStageEnum = pgEnum("lifecycle_stage", [
+  "lead",
+  "prospect",
+  "qualified",
+  "customer",
+  "churned",
+  "partner",
+]);
+
+export const activityTypeEnum = pgEnum("activity_type", [
+  "note",
+  "email",
+  "call",
+  "meeting",
+  "task",
+  "document",
+  "signal",
+  "status_change",
+  "proposal",
+  "follow_up",
+]);
+
+export const taskStatusEnum = pgEnum("task_status", [
+  "todo",
+  "in_progress",
+  "completed",
+  "cancelled",
+]);
+
+export const taskPriorityEnum = pgEnum("task_priority", [
+  "low",
+  "medium",
+  "high",
+  "urgent",
+]);
+
+export const meetingStatusEnum = pgEnum("meeting_status", [
+  "scheduled",
+  "in_progress",
+  "completed",
+  "cancelled",
+  "no_show",
+]);
+
+export const documentTypeEnum = pgEnum("document_type", [
+  "nda",
+  "proposal",
+  "contract",
+  "commercial",
+  "presentation",
+  "meeting",
+  "legal",
+  "other",
+]);
+
+export const ndaStatusEnum = pgEnum("nda_status", [
+  "draft",
+  "sent",
+  "under_review",
+  "signed",
+  "expired",
+]);
+
 // ─── Companies ───────────────────────────────────────────
 
 export const companies = pgTable(
@@ -226,6 +291,17 @@ export const companies = pgTable(
     parentCompanyId: uuid("parent_company_id"),
     logoUrl: text("logo_url"),
     isActive: boolean("is_active").default(true).notNull(),
+    // CRM fields
+    linkedinUrl: text("linkedin_url"),
+    region: text("region"),
+    industry: text("industry"),
+    lifecycleStage: lifecycleStageEnum("lifecycle_stage").default("lead"),
+    estimatedValue: real("estimated_value"),
+    leadSource: text("lead_source"),
+    accountOwner: text("account_owner"),
+    lastActivityAt: timestamp("last_activity_at"),
+    nextActivityAt: timestamp("next_activity_at"),
+    notes: text("notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -233,6 +309,7 @@ export const companies = pgTable(
     index("idx_companies_name").on(t.canonicalName),
     index("idx_companies_country").on(t.country),
     index("idx_companies_type").on(t.companyType),
+    index("idx_companies_lifecycle").on(t.lifecycleStage),
   ]
 );
 
@@ -583,14 +660,20 @@ export const contacts = pgTable(
     name: text("name").notNull(),
     title: text("title"),
     email: text("email"),
+    phone: text("phone"),
     linkedinUrl: text("linkedin_url"),
     source: text("source"),
     confidence: integer("confidence").default(50),
     isDecisionMaker: boolean("is_decision_maker").default(false).notNull(),
+    notes: text("notes"),
+    lastContactedAt: timestamp("last_contacted_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (t) => [index("idx_contacts_company").on(t.companyId)]
+  (t) => [
+    index("idx_contacts_company").on(t.companyId),
+    index("idx_contacts_email").on(t.email),
+  ]
 );
 
 // ─── Opportunities ───────────────────────────────────────
@@ -602,6 +685,7 @@ export const opportunities = pgTable(
     companyId: uuid("company_id")
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
+    // Intelligence scores
     intentScore: integer("intent_score").default(0),
     scalaraFit: real("scalara_fit").default(0),
     evidenceConfidence: integer("evidence_confidence").default(0),
@@ -617,6 +701,16 @@ export const opportunities = pgTable(
     outreachAngle: text("outreach_angle"),
     scoreExplanation: jsonb("score_explanation"),
     lastScoredAt: timestamp("last_scored_at"),
+    // CRM deal fields
+    dealName: text("deal_name"),
+    primaryContactId: uuid("primary_contact_id").references(() => contacts.id),
+    amount: real("amount"),
+    currency: varchar("currency", { length: 3 }).default("EUR"),
+    probability: integer("probability").default(0),
+    expectedCloseDate: timestamp("expected_close_date"),
+    lostReason: text("lost_reason"),
+    lastActivityAt: timestamp("last_activity_at"),
+    nextActivityAt: timestamp("next_activity_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -625,6 +719,7 @@ export const opportunities = pgTable(
     index("idx_opp_score").on(t.opportunityScore),
     index("idx_opp_status").on(t.status),
     index("idx_opp_recommendation").on(t.recommendation),
+    index("idx_opp_close_date").on(t.expectedCloseDate),
   ]
 );
 
@@ -704,5 +799,142 @@ export const auditLogs = pgTable(
   (t) => [
     index("idx_audit_entity").on(t.entityType, t.entityId),
     index("idx_audit_created").on(t.createdAt),
+  ]
+);
+
+// ─── CRM: Activities ────────────────────────────────────
+
+export const activities = pgTable(
+  "activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    activityType: activityTypeEnum("activity_type").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    companyId: uuid("company_id").references(() => companies.id, {
+      onDelete: "cascade",
+    }),
+    contactId: uuid("contact_id").references(() => contacts.id, {
+      onDelete: "set null",
+    }),
+    opportunityId: uuid("opportunity_id").references(() => opportunities.id, {
+      onDelete: "set null",
+    }),
+    meetingId: uuid("meeting_id"),
+    actor: text("actor"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_activities_company").on(t.companyId),
+    index("idx_activities_contact").on(t.contactId),
+    index("idx_activities_opp").on(t.opportunityId),
+    index("idx_activities_type").on(t.activityType),
+    index("idx_activities_created").on(t.createdAt),
+  ]
+);
+
+// ─── CRM: Tasks ─────────────────────────────────────────
+
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description"),
+    owner: text("owner"),
+    companyId: uuid("company_id").references(() => companies.id, {
+      onDelete: "cascade",
+    }),
+    contactId: uuid("contact_id").references(() => contacts.id, {
+      onDelete: "set null",
+    }),
+    opportunityId: uuid("opportunity_id").references(() => opportunities.id, {
+      onDelete: "set null",
+    }),
+    dueDate: timestamp("due_date"),
+    priority: taskPriorityEnum("priority").default("medium").notNull(),
+    status: taskStatusEnum("status").default("todo").notNull(),
+    source: text("source"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_tasks_company").on(t.companyId),
+    index("idx_tasks_status").on(t.status),
+    index("idx_tasks_due").on(t.dueDate),
+    index("idx_tasks_owner").on(t.owner),
+  ]
+);
+
+// ─── CRM: Meetings ──────────────────────────────────────
+
+export const meetings = pgTable(
+  "meetings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    companyId: uuid("company_id").references(() => companies.id, {
+      onDelete: "cascade",
+    }),
+    opportunityId: uuid("opportunity_id").references(() => opportunities.id, {
+      onDelete: "set null",
+    }),
+    calendarEventId: text("calendar_event_id"),
+    googleMeetCode: text("google_meet_code"),
+    startTime: timestamp("start_time").notNull(),
+    endTime: timestamp("end_time"),
+    status: meetingStatusEnum("status").default("scheduled").notNull(),
+    attendees: jsonb("attendees"),
+    notes: text("notes"),
+    summary: text("summary"),
+    actionItems: jsonb("action_items"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_meetings_company").on(t.companyId),
+    index("idx_meetings_opp").on(t.opportunityId),
+    index("idx_meetings_start").on(t.startTime),
+    index("idx_meetings_status").on(t.status),
+  ]
+);
+
+// ─── CRM: Documents ─────────────────────────────────────
+
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").references(() => companies.id, {
+      onDelete: "cascade",
+    }),
+    opportunityId: uuid("opportunity_id").references(() => opportunities.id, {
+      onDelete: "set null",
+    }),
+    meetingId: uuid("meeting_id").references(() => meetings.id, {
+      onDelete: "set null",
+    }),
+    documentType: documentTypeEnum("document_type").default("other").notNull(),
+    name: text("name").notNull(),
+    mimeType: text("mime_type"),
+    driveFileId: text("drive_file_id"),
+    driveFolderId: text("drive_folder_id"),
+    webUrl: text("web_url"),
+    fileSize: integer("file_size"),
+    uploadedBy: text("uploaded_by"),
+    // NDA-specific fields
+    ndaStatus: ndaStatusEnum("nda_status"),
+    ndaSignedDate: timestamp("nda_signed_date"),
+    ndaExpiryDate: timestamp("nda_expiry_date"),
+    ndaCounterparty: text("nda_counterparty"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_documents_company").on(t.companyId),
+    index("idx_documents_opp").on(t.opportunityId),
+    index("idx_documents_type").on(t.documentType),
   ]
 );

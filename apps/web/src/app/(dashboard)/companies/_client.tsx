@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useRouter } from "next/navigation";
 import { Search, Building2, Globe } from "lucide-react";
 
 type CompanyRow = {
@@ -196,10 +197,15 @@ export function CompaniesClient({ companies }: { companies: CompanyRow[] }) {
 
 function CompanyRowItem({ company: c }: { company: CompanyRow }) {
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
 
   return (
     <>
-      <TableRow className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
+      <TableRow
+        className="cursor-pointer"
+        onClick={() => router.push(`/companies/${c.id}`)}
+        onDoubleClick={() => setExpanded(!expanded)}
+      >
         <TableCell className="pl-4">
           <div>
             <div className="font-medium text-sm">{c.name}</div>

@@ -15,6 +15,10 @@ import {
   Database,
   Settings,
   BarChart3,
+  CheckSquare,
+  Calendar,
+  FileText,
+  LayoutDashboard,
 } from "lucide-react";
 import { ScalaraLogo } from "@/components/scalara-logo";
 import {
@@ -47,6 +51,15 @@ const navItems = [
       { title: "Licenses", href: "/licenses", icon: ShieldCheck },
       { title: "News", href: "/news", icon: Newspaper },
       { title: "Contacts", href: "/contacts", icon: Users },
+    ],
+  },
+  {
+    group: "CRM",
+    items: [
+      { title: "CRM", href: "/crm", icon: LayoutDashboard },
+      { title: "Tasks", href: "/tasks", icon: CheckSquare },
+      { title: "Meetings", href: "/meetings", icon: Calendar },
+      { title: "Documents", href: "/documents", icon: FileText },
     ],
   },
   {
