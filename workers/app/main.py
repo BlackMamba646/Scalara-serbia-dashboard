@@ -67,7 +67,11 @@ async def connector_health(name: str) -> dict[str, str]:
 @app.post("/connectors/{name}/crawl")
 async def trigger_crawl(name: str) -> dict[str, Any]:
     from app.tasks.crawl import run_crawl
-    return await run_crawl(name)
+    try:
+        return await run_crawl(name)
+    except Exception as e:
+        logger.exception("Crawl %s failed", name)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/crawl/all")
@@ -82,23 +86,27 @@ async def seed_database() -> dict[str, Any]:
     from app.tasks.crawl import run_all_crawls, ensure_sources_exist
     from app.models.database import async_session
 
-    async with async_session() as session:
-        source_map = await ensure_sources_exist(session)
+    try:
+        async with async_session() as session:
+            source_map = await ensure_sources_exist(session)
 
-    results = await run_all_crawls()
+        results = await run_all_crawls()
 
-    total_new = sum(r.get("new", 0) for r in results)
-    total_records = sum(r.get("records", 0) for r in results)
-    failed = [r["connector"] for r in results if r.get("status") != "completed"]
+        total_new = sum(r.get("new", 0) for r in results)
+        total_records = sum(r.get("records", 0) for r in results)
+        failed = [r["connector"] for r in results if r.get("status") != "completed"]
 
-    return {
-        "status": "completed",
-        "sources_registered": len(source_map),
-        "total_records": total_records,
-        "total_new": total_new,
-        "failed_connectors": failed,
-        "details": results,
-    }
+        return {
+            "status": "completed",
+            "sources_registered": len(source_map),
+            "total_records": total_records,
+            "total_new": total_new,
+            "failed_connectors": failed,
+            "details": results,
+        }
+    except Exception as e:
+        logger.exception("Seed failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/cron/regulators")

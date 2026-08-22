@@ -1,8 +1,20 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://scalara:scalara_dev_password@localhost:5432/scalara_radar"
+
+    @model_validator(mode="after")
+    def _fix_db_url(self):
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://") and "+asyncpg" not in url:
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        url = url.replace("sslmode=", "ssl=")
+        self.database_url = url
+        return self
 
     postgres_host: str = "localhost"
     postgres_port: int = 5432
