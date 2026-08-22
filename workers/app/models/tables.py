@@ -7,6 +7,7 @@ from typing import Optional, List
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Enum,
     Float,
     Integer,
     String,
@@ -28,7 +29,7 @@ class Company(Base):
     canonical_name: Mapped[str] = mapped_column(Text, nullable=False)
     legal_name: Mapped[Optional[str]] = mapped_column(Text)
     country: Mapped[Optional[str]] = mapped_column(Text)
-    company_type: Mapped[Optional[str]] = mapped_column(String(20), default="other")
+    company_type: Mapped[Optional[str]] = mapped_column(Enum("operator", "vendor", "studio", "affiliate", "regulator", "other", name="company_type", create_type=False), default="other")
     employee_count: Mapped[Optional[int]] = mapped_column(Integer)
     website_url: Mapped[Optional[str]] = mapped_column(Text)
     description: Mapped[Optional[str]] = mapped_column(Text)
@@ -51,7 +52,7 @@ class CompanyAlias(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
     alias_name: Mapped[str] = mapped_column(Text, nullable=False)
-    alias_type: Mapped[Optional[str]] = mapped_column(String(20), default="trading")
+    alias_type: Mapped[Optional[str]] = mapped_column(Enum("legal", "brand", "trading", "abbreviation", name="alias_type", create_type=False), default="trading")
     source: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -67,7 +68,7 @@ class Domain(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
     domain_name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    domain_type: Mapped[Optional[str]] = mapped_column(String(20), default="primary")
+    domain_type: Mapped[Optional[str]] = mapped_column(Enum("primary", "brand", "corporate", name="domain_type", create_type=False), default="primary")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -81,7 +82,7 @@ class License(Base):
     jurisdiction: Mapped[str] = mapped_column(Text, nullable=False)
     regulator: Mapped[str] = mapped_column(Text, nullable=False)
     license_type: Mapped[Optional[str]] = mapped_column(Text)
-    license_status: Mapped[Optional[str]] = mapped_column(String(20), default="active")
+    license_status: Mapped[Optional[str]] = mapped_column(Enum("active", "pending", "conditional", "approved", "suspended", "revoked", "expired", "surrendered", "lapsed", "forfeited", name="license_status", create_type=False), default="active")
     legal_entity_name: Mapped[Optional[str]] = mapped_column(Text)
     approved_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
     effective_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -105,7 +106,7 @@ class Signal(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
-    signal_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    signal_type: Mapped[str] = mapped_column(Enum("new_license", "license_approval", "license_change", "license_suspension", "market_expansion", "new_casino", "new_sportsbook", "new_brand", "platform_launch", "funding", "acquisition", "hiring_surge", "engineering_hiring", "payments_hiring", "devops_hiring", "provider_change", "technology_partner_search", "rfp", "game_studio_launch", "regulatory_change", "new_product", "new_tech_partner", "soft_launch", "platform_pain", "platform_migration", "payments_need", name="signal_type", create_type=False), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[Optional[str]] = mapped_column(Text)
     evidence_confidence: Mapped[Optional[int]] = mapped_column(Integer, default=50)
@@ -133,7 +134,7 @@ class Source(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    source_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_type: Mapped[str] = mapped_column(Enum("regulator", "news", "company", "jobs", "funding", "search", name="source_type", create_type=False), nullable=False)
     base_url: Mapped[Optional[str]] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     crawl_frequency_minutes: Mapped[Optional[int]] = mapped_column(Integer, default=720)
@@ -170,7 +171,7 @@ class CrawlRun(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sources.id", ondelete="CASCADE"), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    status: Mapped[str] = mapped_column(Enum("pending", "running", "completed", "failed", name="crawl_status", create_type=False), default="pending", nullable=False)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     documents_processed: Mapped[Optional[int]] = mapped_column(Integer, default=0)
@@ -213,8 +214,8 @@ class Opportunity(Base):
     scalara_fit: Mapped[Optional[float]] = mapped_column(Float, default=0)
     evidence_confidence: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     opportunity_score: Mapped[Optional[int]] = mapped_column(Integer, default=0)
-    recommendation: Mapped[Optional[str]] = mapped_column(String(20), default="monitor")
-    status: Mapped[str] = mapped_column(String(20), default="new", nullable=False)
+    recommendation: Mapped[Optional[str]] = mapped_column(Enum("pursue", "qualify", "monitor", name="recommendation", create_type=False), default="monitor")
+    status: Mapped[str] = mapped_column(Enum("new", "review", "qualified", "contacted", "replied", "meeting", "proposal", "won", "lost", "dismissed", "watch", name="opportunity_status", create_type=False), default="new", nullable=False)
     assigned_to: Mapped[Optional[str]] = mapped_column(Text)
     summary: Mapped[Optional[str]] = mapped_column(Text)
     why_now: Mapped[Optional[str]] = mapped_column(Text)
