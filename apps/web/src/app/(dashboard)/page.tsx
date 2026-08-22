@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { MetricsBar } from "@/components/dashboard/metrics-bar";
 import { HotOpportunities } from "@/components/dashboard/hot-opportunities";
 import { RecentSignals } from "@/components/dashboard/recent-signals";

@@ -25,8 +25,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${manrope.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${manrope.variable} ${jetbrainsMono.variable} h-full antialiased dark`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="light"){document.documentElement.classList.remove("dark")}else if(t!=="dark"&&window.matchMedia("(prefers-color-scheme:light)").matches){document.documentElement.classList.remove("dark")}}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full">
         <ThemeProvider>
           <TooltipProvider>{children}</TooltipProvider>
