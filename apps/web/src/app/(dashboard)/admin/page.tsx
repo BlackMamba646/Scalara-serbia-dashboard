@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -8,35 +10,55 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Activity, Database, Cpu, Clock, Zap, HardDrive } from "lucide-react";
-import { SEED_SOURCES, SEED_COMPANIES, SEED_SIGNALS, SEED_OPPORTUNITIES } from "@/lib/seed-data";
+import { Activity, Database, Zap, HardDrive } from "lucide-react";
+import { db } from "@/lib/db";
+import { companies, signals, opportunities, sources, crawlRuns } from "@/lib/db/schema";
+import { count, desc, eq } from "drizzle-orm";
 
-const systemMetrics = [
-  { label: "Companies Tracked", value: SEED_COMPANIES.length, icon: Database, color: "text-primary" },
-  { label: "Active Signals", value: SEED_SIGNALS.length, icon: Zap, color: "text-chart-2" },
-  { label: "Opportunities", value: SEED_OPPORTUNITIES.length, icon: Activity, color: "text-success" },
-  { label: "Data Sources", value: SEED_SOURCES.length, icon: HardDrive, color: "text-chart-3" },
-];
+export default async function AdminPage() {
+  const [companyCount, signalCount, opportunityCount, sourceCount, recentCrawls] =
+    await Promise.all([
+      db.select({ count: count() }).from(companies),
+      db.select({ count: count() }).from(signals),
+      db.select({ count: count() }).from(opportunities),
+      db.select({ count: count() }).from(sources),
+      db
+        .select({
+          id: crawlRuns.id,
+          sourceName: sources.name,
+          status: crawlRuns.status,
+          startedAt: crawlRuns.startedAt,
+          completedAt: crawlRuns.completedAt,
+          documentsProcessed: crawlRuns.documentsProcessed,
+          newRecords: crawlRuns.newRecords,
+          errors: crawlRuns.errors,
+        })
+        .from(crawlRuns)
+        .innerJoin(sources, eq(crawlRuns.sourceId, sources.id))
+        .orderBy(desc(crawlRuns.createdAt))
+        .limit(10),
+    ]);
 
-const recentJobs = [
-  { id: "job-1", source: "UKGC", type: "Full Crawl", status: "completed", duration: "12.4s", records: 2665, time: "2026-08-10 06:00" },
-  { id: "job-2", source: "GCGRA (UAE)", type: "Full Crawl", status: "completed", duration: "3.2s", records: 26, time: "2026-08-10 06:00" },
-  { id: "job-3", source: "iGaming Business", type: "RSS Fetch", status: "completed", duration: "1.8s", records: 12, time: "2026-08-10 08:00" },
-  { id: "job-4", source: "Gaming Intelligence", type: "RSS Fetch", status: "completed", duration: "2.1s", records: 8, time: "2026-08-10 08:00" },
-  { id: "job-5", source: "SBC News", type: "RSS Fetch", status: "completed", duration: "1.5s", records: 6, time: "2026-08-10 08:00" },
-  { id: "job-6", source: "Signal Extraction", type: "Pipeline", status: "completed", duration: "4.7s", records: 15, time: "2026-08-10 08:05" },
-  { id: "job-7", source: "Entity Resolution", type: "Pipeline", status: "completed", duration: "2.3s", records: 9, time: "2026-08-10 08:06" },
-  { id: "job-8", source: "Scoring Engine", type: "Pipeline", status: "completed", duration: "1.9s", records: 9, time: "2026-08-10 08:07" },
-];
+  const systemMetrics = [
+    { label: "Companies Tracked", value: companyCount[0]?.count ?? 0, icon: Database, color: "text-primary" },
+    { label: "Active Signals", value: signalCount[0]?.count ?? 0, icon: Zap, color: "text-chart-2" },
+    { label: "Opportunities", value: opportunityCount[0]?.count ?? 0, icon: Activity, color: "text-success" },
+    { label: "Data Sources", value: sourceCount[0]?.count ?? 0, icon: HardDrive, color: "text-chart-3" },
+  ];
 
-const jobStatusStyles: Record<string, string> = {
-  completed: "bg-success/10 text-success border-success/30",
-  running: "bg-primary/10 text-primary border-primary/30",
-  failed: "bg-destructive/10 text-destructive border-destructive/30",
-  pending: "bg-muted text-muted-foreground border-border",
-};
+  const jobStatusStyles: Record<string, string> = {
+    completed: "bg-success/10 text-success border-success/30",
+    running: "bg-primary/10 text-primary border-primary/30",
+    failed: "bg-destructive/10 text-destructive border-destructive/30",
+    pending: "bg-muted text-muted-foreground border-border",
+  };
 
-export default function AdminPage() {
+  function formatDuration(start: Date | null, end: Date | null): string {
+    if (!start || !end) return "-";
+    const ms = end.getTime() - start.getTime();
+    return `${(ms / 1000).toFixed(1)}s`;
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -70,26 +92,35 @@ export default function AdminPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-4">Source</TableHead>
-                  <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Duration</TableHead>
-                  <TableHead className="pr-4">Records</TableHead>
+                  <TableHead>Processed</TableHead>
+                  <TableHead className="pr-4">Errors</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentJobs.map((job) => (
+                {recentCrawls.map((job) => (
                   <TableRow key={job.id}>
-                    <TableCell className="pl-4 text-sm font-medium">{job.source}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{job.type}</TableCell>
+                    <TableCell className="pl-4 text-sm font-medium">{job.sourceName}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={`text-[10px] ${jobStatusStyles[job.status]}`}>
+                      <Badge variant="outline" className={`text-[10px] ${jobStatusStyles[job.status] ?? ""}`}>
                         {job.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs tabular-nums">{job.duration}</TableCell>
-                    <TableCell className="pr-4 text-xs tabular-nums">{job.records}</TableCell>
+                    <TableCell className="text-xs tabular-nums">
+                      {formatDuration(job.startedAt, job.completedAt)}
+                    </TableCell>
+                    <TableCell className="text-xs tabular-nums">{job.documentsProcessed ?? 0}</TableCell>
+                    <TableCell className="pr-4 text-xs tabular-nums">{job.errors ?? 0}</TableCell>
                   </TableRow>
                 ))}
+                {recentCrawls.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-sm text-muted-foreground">
+                      No crawl runs yet.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -101,10 +132,10 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <HealthItem label="API Server" status="healthy" detail="FastAPI workers on port 8000" />
-            <HealthItem label="PostgreSQL" status="healthy" detail="5 tables, 4,673 rows" />
-            <HealthItem label="Redis" status="healthy" detail="Queue depth: 0, Memory: 2.1MB" />
-            <HealthItem label="Crawl Scheduler" status="healthy" detail="5 active sources, next run in 4h" />
-            <HealthItem label="LLM Provider" status="healthy" detail="LiteLLM — claude-haiku-4-5" />
+            <HealthItem label="PostgreSQL" status="healthy" detail="Connected via Drizzle ORM" />
+            <HealthItem label="Cron Jobs" status="healthy" detail="Render cron -- HTTP triggers" />
+            <HealthItem label="Crawl Scheduler" status="healthy" detail="Sources configured in DB" />
+            <HealthItem label="LLM Provider" status="healthy" detail="LiteLLM -- claude-haiku-4-5" />
             <HealthItem label="AI Budget" status="warning" detail="$12.40 / $50.00 monthly limit" />
           </CardContent>
         </Card>

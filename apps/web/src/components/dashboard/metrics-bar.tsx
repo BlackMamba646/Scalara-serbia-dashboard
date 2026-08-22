@@ -1,45 +1,18 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Target, Signal, ShieldCheck, TrendingUp, Users } from "lucide-react";
+import { getDashboardMetrics } from "@/lib/db/queries";
 
-const metrics = [
-  {
-    label: "Hot Leads",
-    value: "12",
-    change: "+3 today",
-    icon: Target,
-    color: "text-chart-1",
-  },
-  {
-    label: "Active Signals",
-    value: "47",
-    change: "+8 this week",
-    icon: Signal,
-    color: "text-chart-1",
-  },
-  {
-    label: "Avg Fit",
-    value: "8.2",
-    change: "/10",
-    icon: TrendingUp,
-    color: "text-chart-2",
-  },
-  {
-    label: "License Changes",
-    value: "6",
-    change: "last 7 days",
-    icon: ShieldCheck,
-    color: "text-chart-4",
-  },
-  {
-    label: "Companies",
-    value: "234",
-    change: "tracked",
-    icon: Users,
-    color: "text-muted-foreground",
-  },
-];
+export async function MetricsBar() {
+  const m = await getDashboardMetrics();
 
-export function MetricsBar() {
+  const metrics = [
+    { label: "Hot Leads", value: String(m.hotLeads), change: "pursue recommendation", icon: Target, color: "text-chart-1" },
+    { label: "Active Signals", value: String(m.activeSignals), change: "last 30 days", icon: Signal, color: "text-chart-1" },
+    { label: "Avg Fit", value: m.avgFit.toFixed(1), change: "/10", icon: TrendingUp, color: "text-chart-2" },
+    { label: "License Changes", value: String(m.licenseChanges), change: "last 30 days", icon: ShieldCheck, color: "text-chart-4" },
+    { label: "Companies", value: String(m.totalCompanies), change: "tracked", icon: Users, color: "text-muted-foreground" },
+  ];
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       {metrics.map((m) => (

@@ -7,6 +7,8 @@ import {
   sources,
   crawlRuns,
   licenses,
+  newsArticles,
+  sourceDocuments,
 } from "./schema";
 
 export async function getHotOpportunities(limit = 10) {
@@ -136,6 +138,7 @@ export async function getLicenses(limit = 50) {
       regulator: licenses.regulator,
       licenseType: licenses.licenseType,
       licenseStatus: licenses.licenseStatus,
+      legalEntityName: licenses.legalEntityName,
       effectiveDate: licenses.effectiveDate,
       expiryDate: licenses.expiryDate,
     })
@@ -143,4 +146,35 @@ export async function getLicenses(limit = 50) {
     .innerJoin(companies, eq(licenses.companyId, companies.id))
     .orderBy(desc(licenses.updatedAt))
     .limit(limit);
+}
+
+export async function getNews(limit = 20) {
+  return db.select().from(newsArticles).orderBy(desc(newsArticles.publishedAt)).limit(limit);
+}
+
+export async function getCrawlRuns(limit = 10) {
+  return db
+    .select({
+      id: crawlRuns.id,
+      sourceName: sources.name,
+      status: crawlRuns.status,
+      startedAt: crawlRuns.startedAt,
+      completedAt: crawlRuns.completedAt,
+      documentsProcessed: crawlRuns.documentsProcessed,
+      newRecords: crawlRuns.newRecords,
+      changedRecords: crawlRuns.changedRecords,
+      errors: crawlRuns.errors,
+    })
+    .from(crawlRuns)
+    .innerJoin(sources, eq(crawlRuns.sourceId, sources.id))
+    .orderBy(desc(crawlRuns.createdAt))
+    .limit(limit);
+}
+
+export async function getSourceDocumentCount(sourceId: string) {
+  const result = await db
+    .select({ count: count() })
+    .from(sourceDocuments)
+    .where(eq(sourceDocuments.sourceId, sourceId));
+  return result[0]?.count ?? 0;
 }
