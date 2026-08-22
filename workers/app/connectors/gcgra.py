@@ -116,6 +116,11 @@ class GCGRAConnector(BaseConnector):
         soup = BeautifulSoup(doc.content, "html.parser")
         records: list[NormalizedRecord] = []
 
+        page_text = soup.get_text().lower()
+        if "cloudflare" in page_text and ("blocked" in page_text or "challenge" in page_text or "enable cookies" in page_text):
+            logger.warning("GCGRA page is a Cloudflare block page, skipping parse")
+            return []
+
         cards = soup.select(".licensee-card, .card, [class*='licensee']")
         if not cards:
             rows = soup.select("table tr")

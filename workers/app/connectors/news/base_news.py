@@ -100,6 +100,15 @@ class BaseNewsConnector(BaseConnector):
         fmt = doc.metadata.get("format", "")
         if fmt == "rss":
             articles = self._parse_rss(doc.content)
+            if not articles and self.web_url:
+                client = await self._get_client()
+                try:
+                    resp = await client.get(self.web_url)
+                    resp.raise_for_status()
+                    articles = await self._parse_html(resp.text)
+                    logger.info("RSS empty, fell back to HTML for %s: %d articles", self.source_name, len(articles))
+                except httpx.HTTPError as e:
+                    logger.warning("HTML fallback failed for %s: %s", self.source_name, e)
         else:
             articles = await self._parse_html(doc.content)
 

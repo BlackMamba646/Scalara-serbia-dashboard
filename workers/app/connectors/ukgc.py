@@ -120,9 +120,7 @@ class UKGCConnector(BaseConnector):
                 continue
             companies[acct] = {
                 "account_number": acct,
-                "name": biz.get("name", ""),
-                "address": biz.get("registered_address", biz.get("address", "")),
-                "status": biz.get("status", ""),
+                "name": biz.get("licence_account_name", biz.get("name", "")),
                 "licences": [],
                 "trading_names": [],
                 "domains": [],
@@ -133,7 +131,8 @@ class UKGCConnector(BaseConnector):
             if acct in companies:
                 companies[acct]["licences"].append({
                     "licence_number": lic.get("licence_number", ""),
-                    "licence_type": lic.get("type", lic.get("licence_type", "")),
+                    "licence_type": lic.get("type", ""),
+                    "activity": lic.get("activity", ""),
                     "status": lic.get("status", ""),
                     "start_date": lic.get("start_date", ""),
                     "end_date": lic.get("end_date", ""),
@@ -149,7 +148,7 @@ class UKGCConnector(BaseConnector):
         for dom in domains:
             acct = dom.get("account_number", "").strip()
             if acct in companies:
-                domain = dom.get("url", dom.get("domain_name", dom.get("domain", ""))).strip()
+                domain = dom.get("domain_name", dom.get("url", dom.get("domain", ""))).strip()
                 if domain:
                     companies[acct]["domains"].append(domain)
 

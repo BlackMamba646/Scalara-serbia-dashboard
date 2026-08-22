@@ -8,7 +8,7 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: FRONTEND_URL
-        sync: false
+        value: https://scalara-serbia-dashboard.vercel.app
       - key: LLM_API_KEY
         sync: false
 

@@ -10,6 +10,6 @@ export default async function NewsPage() {
     .select()
     .from(newsArticles)
     .orderBy(desc(newsArticles.publishedAt))
-    .limit(100);
+    .limit(500);
   return <NewsClient articles={articles} />;
 }

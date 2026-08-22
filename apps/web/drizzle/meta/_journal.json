@@ -8,6 +8,13 @@
       "when": 1786359741735,
       "tag": "0000_black_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787388422553,
+      "tag": "0001_first_virginia_dare",
+      "breakpoints": true
     }
   ]
 }

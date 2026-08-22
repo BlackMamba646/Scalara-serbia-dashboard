@@ -201,8 +201,8 @@ async def _persist_entity(
                 content_hash=record.content_hash,
             ))
 
-    elif record.record_type in ("ukgc_business", "gcgra_licensee"):
-        entity_name = data.get("name", data.get("licensee_name", "Unknown"))
+    elif record.record_type in ("ukgc_business", "ukgc_businesses", "gcgra_licensee"):
+        entity_name = data.get("licence_account_name", data.get("name", data.get("licensee_name", "Unknown")))
         company_id = await get_or_create_company(
             session, entity_name, company_type="operator"
         )
@@ -215,17 +215,81 @@ async def _persist_entity(
             select(License).where(License.license_number == license_number)
         )
         if not existing_lic.scalar_one_or_none() and license_number:
+            status_raw = data.get("status", "active").lower().strip()
+            valid_statuses = {"active", "pending", "conditional", "approved", "suspended", "revoked", "expired", "surrendered", "lapsed", "forfeited"}
+            license_status = status_raw if status_raw in valid_statuses else "active"
             session.add(License(
                 company_id=company_id,
                 license_number=license_number,
                 jurisdiction=jurisdiction,
                 regulator=regulator,
-                license_type=data.get("licence_type", ""),
-                license_status=data.get("status", "active").lower(),
+                license_type=data.get("licence_type", data.get("type", "")),
+                license_status=license_status,
                 legal_entity_name=entity_name,
                 last_checked_at=datetime.utcnow(),
                 raw_data=data,
             ))
+            await session.flush()
+
+    elif record.record_type == "ukgc_licences":
+        acct = data.get("account_number", "")
+        if acct:
+            result = await session.execute(
+                select(Company).where(Company.canonical_name.ilike(f"%{acct}%"))
+            )
+            company = result.scalar_one_or_none()
+            if not company:
+                result = await session.execute(
+                    select(License).where(License.license_number == acct)
+                )
+                existing_lic = result.scalar_one_or_none()
+                if existing_lic:
+                    company_id = existing_lic.company_id
+                else:
+                    return
+
+            else:
+                company_id = company.id
+
+            lic_number = data.get("licence_number", data.get("license_number", ""))
+            if lic_number:
+                existing = await session.execute(
+                    select(License).where(License.license_number == lic_number)
+                )
+                if not existing.scalar_one_or_none():
+                    status_raw = data.get("status", "active").lower().strip()
+                    valid_statuses = {"active", "pending", "conditional", "approved", "suspended", "revoked", "expired", "surrendered", "lapsed", "forfeited"}
+                    license_status = status_raw if status_raw in valid_statuses else "active"
+                    session.add(License(
+                        company_id=company_id,
+                        license_number=lic_number,
+                        jurisdiction="United Kingdom",
+                        regulator="UKGC",
+                        license_type=data.get("type", data.get("licence_type", "")),
+                        license_status=license_status,
+                        last_checked_at=datetime.utcnow(),
+                        raw_data=data,
+                    ))
+                    await session.flush()
+
+    elif record.record_type == "ukgc_domains":
+        acct = data.get("account_number", "")
+        domain_name = data.get("url", data.get("domain_name", data.get("domain", ""))).strip()
+        if acct and domain_name:
+            result = await session.execute(
+                select(License).where(License.license_number == acct)
+            )
+            lic = result.scalar_one_or_none()
+            if lic:
+                existing = await session.execute(
+                    select(Domain).where(Domain.domain_name == domain_name)
+                )
+                if not existing.scalar_one_or_none():
+                    session.add(Domain(
+                        company_id=lic.company_id,
+                        domain_name=domain_name,
+                        domain_type="brand",
+                    ))
 
 
 async def run_crawl(connector_name: str) -> dict:
