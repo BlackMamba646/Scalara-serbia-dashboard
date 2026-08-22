@@ -41,9 +41,12 @@ const typeStyles: Record<string, string> = {
   other: "bg-muted text-muted-foreground",
 };
 
+const PAGE_SIZE = 50;
+
 export function CompaniesClient({ companies }: { companies: CompanyRow[] }) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
   const filtered = companies.filter((c) => {
     if (search) {
@@ -53,6 +56,10 @@ export function CompaniesClient({ companies }: { companies: CompanyRow[] }) {
     if (typeFilter !== "all" && c.type !== typeFilter) return false;
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const operators = companies.filter((c) => c.type === "operator").length;
   const vendors = companies.filter((c) => c.type === "vendor").length;
@@ -113,11 +120,11 @@ export function CompaniesClient({ companies }: { companies: CompanyRow[] }) {
                 <Input
                   placeholder="Search by name..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                   className="h-8 w-56 pl-8 text-sm"
                 />
               </div>
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "all")}>
+              <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v ?? "all"); setPage(1); }}>
                 <SelectTrigger size="sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -145,7 +152,7 @@ export function CompaniesClient({ companies }: { companies: CompanyRow[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((c) => (
+              {paged.map((c) => (
                 <CompanyRowItem key={c.id} company={c} />
               ))}
             </TableBody>
@@ -153,6 +160,32 @@ export function CompaniesClient({ companies }: { companies: CompanyRow[] }) {
           {filtered.length === 0 && (
             <div className="text-center py-8 text-sm text-muted-foreground">
               No companies match your search.
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <span className="text-xs text-muted-foreground">
+                Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(Math.max(1, safePage - 1))}
+                  disabled={safePage <= 1}
+                  className="px-3 py-1.5 text-xs rounded-md border bg-background hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Previous
+                </button>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {safePage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+                  disabled={safePage >= totalPages}
+                  className="px-3 py-1.5 text-xs rounded-md border bg-background hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </CardContent>

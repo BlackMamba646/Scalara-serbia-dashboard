@@ -59,9 +59,12 @@ function timeAgo(date: Date): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+const PAGE_SIZE = 50;
+
 export function SignalsClient({ signals }: { signals: SignalRow[] }) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
   const signalTypes = [...new Set(signals.map((s) => s.signalType))].sort();
 
@@ -77,6 +80,10 @@ export function SignalsClient({ signals }: { signals: SignalRow[] }) {
     if (typeFilter !== "all" && s.signalType !== typeFilter) return false;
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const highConfidence = signals.filter(
     (s) => (s.evidenceConfidence ?? 0) >= 90
@@ -133,13 +140,13 @@ export function SignalsClient({ signals }: { signals: SignalRow[] }) {
           <Input
             placeholder="Search signals..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="h-8 pl-8 text-sm"
           />
         </div>
         <Select
           value={typeFilter}
-          onValueChange={(v) => setTypeFilter(v ?? "all")}
+          onValueChange={(v) => { setTypeFilter(v ?? "all"); setPage(1); }}
         >
           <SelectTrigger size="sm">
             <SelectValue />
@@ -156,7 +163,7 @@ export function SignalsClient({ signals }: { signals: SignalRow[] }) {
       </div>
 
       <div className="space-y-2">
-        {filtered.map((signal) => (
+        {paged.map((signal) => (
           <SignalCard key={signal.id} signal={signal} />
         ))}
         {filtered.length === 0 && (
@@ -167,6 +174,33 @@ export function SignalsClient({ signals }: { signals: SignalRow[] }) {
           </Card>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(Math.max(1, safePage - 1))}
+              disabled={safePage <= 1}
+              className="px-3 py-1.5 text-xs rounded-md border bg-background hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+            >
+              Previous
+            </button>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {safePage} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+              disabled={safePage >= totalPages}
+              className="px-3 py-1.5 text-xs rounded-md border bg-background hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

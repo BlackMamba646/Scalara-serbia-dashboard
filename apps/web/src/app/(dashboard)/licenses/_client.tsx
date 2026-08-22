@@ -43,10 +43,13 @@ const statusStyles: Record<string, string> = {
   expired: "bg-muted text-muted-foreground border-border",
 };
 
+const PAGE_SIZE = 50;
+
 export function LicensesClient({ licenses }: { licenses: LicenseRow[] }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [jurisdictionFilter, setJurisdictionFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
   const jurisdictions = [...new Set(licenses.map((l) => l.jurisdiction))].sort();
 
@@ -64,6 +67,10 @@ export function LicensesClient({ licenses }: { licenses: LicenseRow[] }) {
     if (jurisdictionFilter !== "all" && l.jurisdiction !== jurisdictionFilter) return false;
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const activeCount = licenses.filter((l) => l.licenseStatus === "active").length;
   const pendingCount = licenses.filter((l) => l.licenseStatus === "pending").length;
@@ -121,11 +128,11 @@ export function LicensesClient({ licenses }: { licenses: LicenseRow[] }) {
                 <Input
                   placeholder="Search licenses..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                   className="h-8 w-52 pl-8 text-sm"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
+              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v ?? "all"); setPage(1); }}>
                 <SelectTrigger size="sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -137,7 +144,7 @@ export function LicensesClient({ licenses }: { licenses: LicenseRow[] }) {
                   <SelectItem value="expired">Expired</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={jurisdictionFilter} onValueChange={(v) => setJurisdictionFilter(v ?? "all")}>
+              <Select value={jurisdictionFilter} onValueChange={(v) => { setJurisdictionFilter(v ?? "all"); setPage(1); }}>
                 <SelectTrigger size="sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -166,7 +173,7 @@ export function LicensesClient({ licenses }: { licenses: LicenseRow[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((lic) => (
+              {paged.map((lic) => (
                 <TableRow key={lic.id}>
                   <TableCell className="pl-4">
                     <div>
@@ -202,6 +209,32 @@ export function LicensesClient({ licenses }: { licenses: LicenseRow[] }) {
           {filtered.length === 0 && (
             <div className="text-center py-8 text-sm text-muted-foreground">
               No licenses match your filters.
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <span className="text-xs text-muted-foreground">
+                Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(Math.max(1, safePage - 1))}
+                  disabled={safePage <= 1}
+                  className="px-3 py-1.5 text-xs rounded-md border bg-background hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Previous
+                </button>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {safePage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+                  disabled={safePage >= totalPages}
+                  className="px-3 py-1.5 text-xs rounded-md border bg-background hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </CardContent>

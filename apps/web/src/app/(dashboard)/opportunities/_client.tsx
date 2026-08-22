@@ -67,6 +67,8 @@ function timeAgo(date: Date): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+const PAGE_SIZE = 50;
+
 export function OpportunitiesClient({
   opportunities,
 }: {
@@ -76,6 +78,7 @@ export function OpportunitiesClient({
   const [recFilter, setRecFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [page, setPage] = useState(1);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -113,6 +116,10 @@ export function OpportunitiesClient({
         );
       return 0;
     });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const pursueCount = opportunities.filter(
     (o) => o.recommendation === "pursue"
@@ -185,13 +192,13 @@ export function OpportunitiesClient({
                 <Input
                   placeholder="Search companies..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                   className="h-8 w-48 pl-8 text-sm"
                 />
               </div>
               <Select
                 value={recFilter}
-                onValueChange={(v) => setRecFilter(v ?? "all")}
+                onValueChange={(v) => { setRecFilter(v ?? "all"); setPage(1); }}
               >
                 <SelectTrigger size="sm">
                   <SelectValue />
@@ -249,7 +256,7 @@ export function OpportunitiesClient({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((opp) => (
+              {paged.map((opp) => (
                 <OpportunityRowItem key={opp.id} opp={opp} />
               ))}
             </TableBody>
@@ -257,6 +264,32 @@ export function OpportunitiesClient({
           {filtered.length === 0 && (
             <div className="text-center py-8 text-sm text-muted-foreground">
               No opportunities match your filters.
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <span className="text-xs text-muted-foreground">
+                Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(Math.max(1, safePage - 1))}
+                  disabled={safePage <= 1}
+                  className="px-3 py-1.5 text-xs rounded-md border bg-background hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Previous
+                </button>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {safePage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+                  disabled={safePage >= totalPages}
+                  className="px-3 py-1.5 text-xs rounded-md border bg-background hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </CardContent>
