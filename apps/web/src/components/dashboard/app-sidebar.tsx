@@ -19,7 +19,9 @@ import {
   Calendar,
   FileText,
   LayoutDashboard,
+  LogOut,
 } from "lucide-react";
+import { logout } from "@/lib/actions/auth";
 import { ScalaraLogo } from "@/components/scalara-logo";
 import {
   Sidebar,
@@ -127,8 +129,17 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-3">
+      <SidebarFooter className="border-t border-sidebar-border p-3 space-y-2">
         <ThemeToggle />
+        <form action={logout}>
+          <button
+            type="submit"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out
+          </button>
+        </form>
       </SidebarFooter>
     </Sidebar>
   );
