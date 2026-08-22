@@ -6,6 +6,9 @@ KYC categories indicate operators with platform pain — high intent
 signals for B2B outreach.
 """
 
+from __future__ import annotations
+
+
 import logging
 import re
 from datetime import datetime, timedelta

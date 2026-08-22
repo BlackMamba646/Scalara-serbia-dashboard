@@ -6,6 +6,9 @@ complaints about platform, payment, or software issues indicate operators
 actively looking for new technology partners.
 """
 
+from __future__ import annotations
+
+
 import logging
 import re
 from datetime import datetime, timedelta

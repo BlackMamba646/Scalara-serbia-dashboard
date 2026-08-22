@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import re
 import uuid
@@ -11,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 COMPANY_SUFFIXES = re.compile(
-    r"\b(ltd|limited|llc|inc|incorporated|corp|corporation|plc|gmbh|"
-    r"ag|sa|bv|nv|pty)\b\.?",
+    r"(ltd|limited|llc|inc|incorporated|corp|corporation|plc|gmbh|"
+    r"ag|sa|bv|nv|pty)\.?",
     re.IGNORECASE,
 )
 

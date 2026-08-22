@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -6,18 +7,36 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.connectors.registry import get_connector, list_connectors, CONNECTOR_REGISTRY
+from app.models.database import engine
+from app.models.tables import Base
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables created/verified")
+    yield
+    await engine.dispose()
+
 
 app = FastAPI(
     title="Scalara Radar Workers",
     description="Data pipeline workers for iGaming sales intelligence",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://*.vercel.app",
+        settings.frontend_url,
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -40,28 +59,43 @@ async def connector_health(name: str) -> dict[str, str]:
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     status = await connector.health_check()
-    await connector.close() if hasattr(connector, "close") else None
+    if hasattr(connector, "close"):
+        await connector.close()
     return {"connector": name, "status": status.value}
 
 
 @app.post("/connectors/{name}/crawl")
 async def trigger_crawl(name: str) -> dict[str, Any]:
-    try:
-        connector = get_connector(name)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    from app.tasks.crawl import run_crawl
+    return await run_crawl(name)
 
-    docs = await connector.fetch()
-    all_records = []
-    for doc in docs:
-        records = await connector.parse(doc)
-        all_records.extend(records)
 
-    await connector.close() if hasattr(connector, "close") else None
+@app.post("/crawl/all")
+async def trigger_all_crawls() -> list[dict]:
+    from app.tasks.crawl import run_all_crawls
+    return await run_all_crawls()
+
+
+@app.post("/crawl/seed")
+async def seed_database() -> dict[str, Any]:
+    """Run all connectors and populate the database with initial data."""
+    from app.tasks.crawl import run_all_crawls, ensure_sources_exist
+    from app.models.database import async_session
+
+    async with async_session() as session:
+        source_map = await ensure_sources_exist(session)
+
+    results = await run_all_crawls()
+
+    total_new = sum(r.get("new", 0) for r in results)
+    total_records = sum(r.get("records", 0) for r in results)
+    failed = [r["connector"] for r in results if r.get("status") != "completed"]
 
     return {
-        "connector": name,
-        "documents_fetched": len(docs),
-        "records_parsed": len(all_records),
-        "sample": [r.data for r in all_records[:3]],
+        "status": "completed",
+        "sources_registered": len(source_map),
+        "total_records": total_records,
+        "total_new": total_new,
+        "failed_connectors": failed,
+        "details": results,
     }

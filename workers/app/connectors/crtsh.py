@@ -5,6 +5,9 @@ keywords. New certificates for casino/bet/slots/poker domains surface
 soft launches and new brand variants days or weeks before press coverage.
 """
 
+from __future__ import annotations
+
+
 import logging
 import re
 from datetime import datetime, timedelta
