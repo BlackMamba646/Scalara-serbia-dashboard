@@ -75,7 +75,7 @@ async def get_or_create_company(
 ) -> uuid.UUID:
     """Find a company by canonical name or create one."""
     result = await session.execute(
-        select(Company).where(Company.canonical_name == name)
+        select(Company).where(Company.canonical_name == name).limit(1)
     )
     existing = result.scalar_one_or_none()
 
@@ -109,7 +109,7 @@ async def persist_records(
             select(SourceDocument).where(
                 SourceDocument.source_id == source_id,
                 SourceDocument.url == record.source_url,
-            )
+            ).limit(1)
         )
         doc = existing_doc.scalar_one_or_none()
 
@@ -191,12 +191,32 @@ async def _persist_entity(
             select(NewsArticle).where(NewsArticle.url == url)
         )
         if not existing_article.scalar_one_or_none():
+            publisher_map = {
+                "igb": "iGaming Business",
+                "sbc": "SBC News",
+                "gaming_intelligence": "Gaming Intelligence",
+            }
+            raw_pub = data.get("published") or data.get("published_at") or ""
+            pub_dt = None
+            if raw_pub:
+                try:
+                    pub_dt = datetime.fromisoformat(raw_pub)
+                except ValueError:
+                    from email.utils import parsedate_to_datetime
+                    try:
+                        pub_dt = parsedate_to_datetime(raw_pub)
+                    except Exception:
+                        pass
+            if pub_dt and pub_dt.tzinfo is not None:
+                pub_dt = pub_dt.replace(tzinfo=None)
+            source_key = data.get("source", record.source_name)
+            publisher = data.get("publisher") or publisher_map.get(source_key, source_key)
             session.add(NewsArticle(
                 source_id=source_id,
                 title=data.get("title", ""),
                 url=url,
-                publisher=data.get("publisher"),
-                published_at=datetime.fromisoformat(data["published_at"]) if data.get("published_at") else None,
+                publisher=publisher,
+                published_at=pub_dt,
                 excerpt=data.get("summary", data.get("excerpt", "")),
                 content_hash=record.content_hash,
             ))
@@ -212,7 +232,7 @@ async def _persist_entity(
         regulator = "UKGC" if "ukgc" in record.source_name.lower() else "GCGRA"
 
         existing_lic = await session.execute(
-            select(License).where(License.license_number == license_number)
+            select(License).where(License.license_number == license_number).limit(1)
         )
         if not existing_lic.scalar_one_or_none() and license_number:
             status_raw = data.get("status", "active").lower().strip()
@@ -235,12 +255,12 @@ async def _persist_entity(
         acct = data.get("account_number", "")
         if acct:
             result = await session.execute(
-                select(Company).where(Company.canonical_name.ilike(f"%{acct}%"))
+                select(Company).where(Company.canonical_name.ilike(f"%{acct}%")).limit(1)
             )
             company = result.scalar_one_or_none()
             if not company:
                 result = await session.execute(
-                    select(License).where(License.license_number == acct)
+                    select(License).where(License.license_number == acct).limit(1)
                 )
                 existing_lic = result.scalar_one_or_none()
                 if existing_lic:
@@ -254,7 +274,7 @@ async def _persist_entity(
             lic_number = data.get("licence_number", data.get("license_number", ""))
             if lic_number:
                 existing = await session.execute(
-                    select(License).where(License.license_number == lic_number)
+                    select(License).where(License.license_number == lic_number).limit(1)
                 )
                 if not existing.scalar_one_or_none():
                     status_raw = data.get("status", "active").lower().strip()
@@ -277,12 +297,12 @@ async def _persist_entity(
         domain_name = data.get("url", data.get("domain_name", data.get("domain", ""))).strip()
         if acct and domain_name:
             result = await session.execute(
-                select(License).where(License.license_number == acct)
+                select(License).where(License.license_number == acct).limit(1)
             )
             lic = result.scalar_one_or_none()
             if lic:
                 existing = await session.execute(
-                    select(Domain).where(Domain.domain_name == domain_name)
+                    select(Domain).where(Domain.domain_name == domain_name).limit(1)
                 )
                 if not existing.scalar_one_or_none():
                     session.add(Domain(

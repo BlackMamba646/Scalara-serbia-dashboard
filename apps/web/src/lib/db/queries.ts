@@ -52,11 +52,12 @@ export async function getRecentSignals(limit = 20) {
       evidenceConfidence: signals.evidenceConfidence,
       salesIntent: signals.salesIntent,
       detectedAt: signals.detectedAt,
+      publishedAt: signals.publishedAt,
       isVerified: signals.isVerified,
     })
     .from(signals)
     .innerJoin(companies, eq(signals.companyId, companies.id))
-    .orderBy(desc(signals.detectedAt))
+    .orderBy(desc(signals.publishedAt), desc(signals.detectedAt))
     .limit(limit);
 }
 

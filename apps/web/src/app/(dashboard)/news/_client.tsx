@@ -18,6 +18,7 @@ type NewsRow = {
   title: string;
   publisher: string | null;
   publishedAt: Date | null;
+  createdAt: Date;
   excerpt: string | null;
   url: string;
   topics: string[] | null;
@@ -28,6 +29,21 @@ const publisherColors: Record<string, string> = {
   "Gaming Intelligence": "bg-chart-3/10 text-chart-3",
   "SBC News": "bg-chart-5/10 text-chart-5",
 };
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 function timeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -137,9 +153,13 @@ function NewsCard({ article }: { article: NewsRow }) {
                   {article.publisher}
                 </Badge>
               )}
-              {article.publishedAt && (
+              {article.publishedAt ? (
                 <span className="text-[10px] text-muted-foreground">
-                  {timeAgo(article.publishedAt)}
+                  {formatDate(article.publishedAt)} at {formatTime(article.publishedAt)} · {timeAgo(article.publishedAt)}
+                </span>
+              ) : (
+                <span className="text-[10px] text-muted-foreground/60 italic">
+                  Scraped {formatDate(article.createdAt)}
                 </span>
               )}
             </div>

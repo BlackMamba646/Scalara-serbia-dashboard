@@ -22,6 +22,7 @@ type SignalRow = {
   evidenceConfidence: number | null;
   salesIntent: number | null;
   detectedAt: Date;
+  publishedAt: Date | null;
   isVerified: boolean;
 };
 
@@ -51,6 +52,21 @@ const confidenceColor = (c: number) => {
   if (c >= 70) return "text-chart-2";
   return "text-muted-foreground";
 };
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 function timeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -230,9 +246,15 @@ function SignalCard({ signal }: { signal: SignalRow }) {
               <span className="text-xs font-medium">
                 {signal.companyName ?? "Unknown"}
               </span>
-              <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                {timeAgo(new Date(signal.detectedAt))}
-              </span>
+              {signal.publishedAt ? (
+                <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                  {formatDate(new Date(signal.publishedAt))} at {formatTime(new Date(signal.publishedAt))} · {timeAgo(new Date(signal.publishedAt))}
+                </span>
+              ) : (
+                <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0 italic">
+                  Detected {formatDate(new Date(signal.detectedAt))}
+                </span>
+              )}
             </div>
             <h3 className="text-sm font-medium mb-1">{signal.title}</h3>
             <p className="text-xs text-muted-foreground line-clamp-2">

@@ -166,6 +166,7 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
     title = data.get("title", "")
     summary = data.get("summary", "")
     text = f"{title} {summary}".lower()
+    pub = data.get("published") or data.get("published_at") or None
 
     signals: list[dict[str, Any]] = []
 
@@ -178,6 +179,7 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
             evidence_type="inference",
             source_url=data.get("url", change.source_url),
             entity_name="",
+            published_at=pub,
         ))
 
     if any(kw in text for kw in ["launches in", "enters market", "expands into", "goes live in", "market entry"]):
@@ -189,6 +191,7 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
             evidence_type="inference",
             source_url=data.get("url", change.source_url),
             entity_name="",
+            published_at=pub,
         ))
 
     if any(kw in text for kw in ["switches provider", "replaces platform", "migrates to", "new platform deal"]):
@@ -200,6 +203,7 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
             evidence_type="inference",
             source_url=data.get("url", change.source_url),
             entity_name="",
+            published_at=pub,
         ))
 
     if any(kw in text for kw in ["raises", "funding round", "series a", "series b", "series c", "investment"]):
@@ -211,6 +215,7 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
             evidence_type="inference",
             source_url=data.get("url", change.source_url),
             entity_name="",
+            published_at=pub,
         ))
 
     if any(kw in text for kw in ["acquires", "acquisition", "buys", "takes over", "merger"]):
@@ -222,6 +227,7 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
             evidence_type="inference",
             source_url=data.get("url", change.source_url),
             entity_name="",
+            published_at=pub,
         ))
 
     if any(kw in text for kw in ["partnership", "partners with", "integrates with", "deal with", "agreement"]):
@@ -233,6 +239,7 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
             evidence_type="inference",
             source_url=data.get("url", change.source_url),
             entity_name="",
+            published_at=pub,
         ))
 
     if any(kw in text for kw in ["appoints", "hires", "names new", "joins as"]):
@@ -245,6 +252,7 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
             evidence_type="inference",
             source_url=data.get("url", change.source_url),
             entity_name="",
+            published_at=pub,
         ))
 
     if any(kw in text for kw in ["rfp", "request for proposal", "tender", "seeking provider"]):
@@ -256,6 +264,7 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
             evidence_type="inference",
             source_url=data.get("url", change.source_url),
             entity_name="",
+            published_at=pub,
         ))
 
     if not signals:
@@ -267,6 +276,7 @@ def _extract_news_signals(change: ChangeEvent) -> list[dict[str, Any]]:
             evidence_type="inference",
             source_url=data.get("url", change.source_url),
             entity_name="",
+            published_at=pub,
         ))
 
     return signals
@@ -373,6 +383,7 @@ def _make_signal(
     source_url: str,
     entity_name: str,
     metadata: dict[str, Any] | None = None,
+    published_at: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": str(uuid.uuid4()),
@@ -385,6 +396,7 @@ def _make_signal(
         "entity_name": entity_name,
         "weight": SIGNAL_WEIGHTS.get(signal_type, 0.5),
         "detected_at": datetime.utcnow().isoformat(),
+        "published_at": published_at,
         "metadata": metadata or {},
     }
 
