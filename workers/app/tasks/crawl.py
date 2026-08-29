@@ -386,6 +386,90 @@ async def _persist_entity(
                     ))
 
 
+async def _detect_and_signal(
+    session: AsyncSession,
+    connector: BaseConnector,
+    current_records: list[NormalizedRecord],
+    source_id: uuid.UUID,
+    connector_name: str,
+) -> int:
+    """Load previous snapshot, run change detection, extract and persist signals."""
+    prev_docs = await session.execute(
+        select(SourceDocument).where(SourceDocument.source_id == source_id)
+    )
+    previous_records: list[NormalizedRecord] = []
+    for doc in prev_docs.scalars().all():
+        if doc.metadata_:
+            previous_records.append(NormalizedRecord(
+                source_name=connector_name,
+                record_type=doc.document_type or "",
+                data=doc.metadata_,
+                source_url=doc.url,
+                content_hash=doc.content_hash or "",
+            ))
+
+    if not previous_records:
+        logger.info("No previous snapshot for %s — skipping change detection", connector_name)
+        return 0
+
+    try:
+        change_events = await connector.detect_changes(current_records, previous_records)
+    except Exception as e:
+        logger.warning("Change detection failed for %s: %s", connector_name, e)
+        return 0
+
+    if not change_events:
+        logger.info("No changes detected for %s", connector_name)
+        return 0
+
+    logger.info("Detected %d changes for %s", len(change_events), connector_name)
+
+    signal_count = 0
+    for event in change_events:
+        extracted = extract_signals_from_change(event)
+        for sig in extracted:
+            db_type = EXTRACTOR_TO_DB_TYPE.get(sig["signal_type"])
+            if not db_type:
+                continue
+
+            sig_hash = f"change:{connector_name}:{event.entity_id}:{sig['signal_type']}"
+            existing_sig = await session.execute(
+                select(Signal).where(Signal.content_hash == sig_hash).limit(1)
+            )
+            if existing_sig.scalar_one_or_none():
+                continue
+
+            entity_name = sig.get("entity_name") or event.entity_id or connector_name
+            company_id = await get_or_create_company(session, entity_name)
+
+            pub_dt = None
+            if sig.get("published_at"):
+                try:
+                    pub_dt = datetime.fromisoformat(str(sig["published_at"]))
+                except ValueError:
+                    pass
+            if pub_dt and pub_dt.tzinfo is not None:
+                pub_dt = pub_dt.replace(tzinfo=None)
+
+            session.add(Signal(
+                company_id=company_id,
+                signal_type=db_type,
+                title=sig["title"],
+                summary=sig["description"],
+                evidence_confidence=int(sig["confidence"] * 100),
+                sales_intent=int(sig["weight"] * 100),
+                published_at=pub_dt,
+                content_hash=sig_hash,
+            ))
+            signal_count += 1
+
+    if signal_count:
+        await session.flush()
+        logger.info("Created %d signals from change detection for %s", signal_count, connector_name)
+
+    return signal_count
+
+
 async def run_crawl(connector_name: str) -> dict:
     """Execute a full crawl cycle for one connector."""
     logger.info("Starting crawl: %s", connector_name)
@@ -427,6 +511,11 @@ async def run_crawl(connector_name: str) -> dict:
                 records = await connector.parse(doc)
                 all_records.extend(records)
 
+            # --- Change detection: compare current vs previous snapshot ---
+            signal_count = await _detect_and_signal(
+                session, connector, all_records, source_id, connector_name
+            )
+
             new_count, changed_count = await persist_records(
                 session, all_records, source_id, connector_name
             )
@@ -449,8 +538,8 @@ async def run_crawl(connector_name: str) -> dict:
 
             await session.commit()
             logger.info(
-                "Crawl %s complete: %d docs, %d new, %d changed",
-                connector_name, len(docs), new_count, changed_count,
+                "Crawl %s complete: %d docs, %d new, %d changed, %d signals",
+                connector_name, len(docs), new_count, changed_count, signal_count,
             )
 
             result = {
@@ -460,6 +549,7 @@ async def run_crawl(connector_name: str) -> dict:
                 "records": len(all_records),
                 "new": new_count,
                 "changed": changed_count,
+                "signals": signal_count,
             }
 
         except Exception as e:
