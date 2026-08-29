@@ -145,6 +145,7 @@ async def persist_records(
         if doc:
             if doc.content_hash != record.content_hash:
                 doc.content_hash = record.content_hash
+                doc.metadata_ = record.data
                 doc.last_changed_at = datetime.utcnow()
                 changed_count += 1
         else:
@@ -386,6 +387,79 @@ async def _persist_entity(
                     ))
 
 
+async def _detect_regulator_changes(
+    session: AsyncSession,
+    current_records: list[NormalizedRecord],
+    connector_name: str,
+) -> list[ChangeEvent]:
+    """Compare current regulator CSV against licenses table in DB."""
+    from app.connectors.base import ChangeEvent as BaseChangeEvent
+
+    business_records = [r for r in current_records if r.record_type in ("ukgc_businesses", "ukgc_business")]
+    if not business_records:
+        return []
+
+    result = await session.execute(
+        select(License).where(
+            License.regulator == "UKGC",
+            ~License.license_number.contains("-"),
+        )
+    )
+    db_licenses = result.scalars().all()
+    db_map: dict[str, License] = {}
+    for lic in db_licenses:
+        if lic.license_number:
+            db_map[lic.license_number] = lic
+
+    current_accts: dict[str, dict] = {}
+    for r in business_records:
+        acct = r.data.get("account_number", "")
+        if acct:
+            current_accts[acct] = r.data
+
+    events: list[BaseChangeEvent] = []
+
+    for acct, data in current_accts.items():
+        if acct not in db_map:
+            events.append(BaseChangeEvent(
+                event_type="new",
+                entity_type="ukgc_business",
+                entity_id=acct,
+                field_name=None,
+                old_value=None,
+                new_value=data,
+                source_url="https://www.gamblingcommission.gov.uk",
+            ))
+        else:
+            lic = db_map[acct]
+            csv_status = data.get("status", "").lower().strip()
+            db_status = (lic.license_status or "").lower().strip()
+            if csv_status and db_status and csv_status != db_status:
+                events.append(BaseChangeEvent(
+                    event_type="modified",
+                    entity_type="ukgc_business",
+                    entity_id=acct,
+                    field_name="status",
+                    old_value=db_status,
+                    new_value=csv_status,
+                    source_url="https://www.gamblingcommission.gov.uk",
+                ))
+
+    for acct, lic in db_map.items():
+        if acct not in current_accts:
+            events.append(BaseChangeEvent(
+                event_type="removed",
+                entity_type="ukgc_business",
+                entity_id=acct,
+                field_name=None,
+                old_value={"licence_account_name": lic.legal_entity_name, "status": lic.license_status},
+                new_value=None,
+                source_url="https://www.gamblingcommission.gov.uk",
+            ))
+
+    return events
+
+
 async def _detect_and_signal(
     session: AsyncSession,
     connector: BaseConnector,
@@ -393,30 +467,33 @@ async def _detect_and_signal(
     source_id: uuid.UUID,
     connector_name: str,
 ) -> int:
-    """Load previous snapshot, run change detection, extract and persist signals."""
-    prev_docs = await session.execute(
-        select(SourceDocument).where(SourceDocument.source_id == source_id)
-    )
-    previous_records: list[NormalizedRecord] = []
-    for doc in prev_docs.scalars().all():
-        if doc.metadata_:
-            previous_records.append(NormalizedRecord(
-                source_name=connector_name,
-                record_type=doc.document_type or "",
-                data=doc.metadata_,
-                source_url=doc.url,
-                content_hash=doc.content_hash or "",
-            ))
+    """Run change detection and extract signals."""
+    if connector_name == "ukgc":
+        change_events = await _detect_regulator_changes(session, current_records, connector_name)
+    else:
+        prev_docs = await session.execute(
+            select(SourceDocument).where(SourceDocument.source_id == source_id)
+        )
+        previous_records: list[NormalizedRecord] = []
+        for doc in prev_docs.scalars().all():
+            if doc.metadata_:
+                previous_records.append(NormalizedRecord(
+                    source_name=connector_name,
+                    record_type=doc.document_type or "",
+                    data=doc.metadata_,
+                    source_url=doc.url,
+                    content_hash=doc.content_hash or "",
+                ))
 
-    if not previous_records:
-        logger.info("No previous snapshot for %s — skipping change detection", connector_name)
-        return 0
+        if not previous_records:
+            logger.info("No previous snapshot for %s — skipping change detection", connector_name)
+            return 0
 
-    try:
-        change_events = await connector.detect_changes(current_records, previous_records)
-    except Exception as e:
-        logger.warning("Change detection failed for %s: %s", connector_name, e)
-        return 0
+        try:
+            change_events = await connector.detect_changes(current_records, previous_records)
+        except Exception as e:
+            logger.warning("Change detection failed for %s: %s", connector_name, e)
+            return 0
 
     if not change_events:
         logger.info("No changes detected for %s", connector_name)
@@ -432,14 +509,26 @@ async def _detect_and_signal(
             if not db_type:
                 continue
 
-            sig_hash = f"change:{connector_name}:{event.entity_id}:{sig['signal_type']}"
+            today = datetime.utcnow().strftime("%Y-%m-%d")
+            sig_hash = f"change:{connector_name}:{event.entity_id}:{sig['signal_type']}:{today}"
             existing_sig = await session.execute(
                 select(Signal).where(Signal.content_hash == sig_hash).limit(1)
             )
             if existing_sig.scalar_one_or_none():
                 continue
 
-            entity_name = sig.get("entity_name") or event.entity_id or connector_name
+            meta = event.new_value if isinstance(event.new_value, dict) else (
+                event.old_value if isinstance(event.old_value, dict) else {}
+            )
+            entity_name = (
+                sig.get("entity_name")
+                or meta.get("licence_account_name")
+                or meta.get("name")
+                or meta.get("licensee_name")
+                or meta.get("casino_name")
+                or event.entity_id
+                or connector_name
+            )
             company_id = await get_or_create_company(session, entity_name)
 
             pub_dt = None
@@ -451,10 +540,13 @@ async def _detect_and_signal(
             if pub_dt and pub_dt.tzinfo is not None:
                 pub_dt = pub_dt.replace(tzinfo=None)
 
+            title = sig["title"]
+            if entity_name and event.entity_id and event.entity_id in title:
+                title = title.replace(event.entity_id, entity_name)
             session.add(Signal(
                 company_id=company_id,
                 signal_type=db_type,
-                title=sig["title"],
+                title=title,
                 summary=sig["description"],
                 evidence_confidence=int(sig["confidence"] * 100),
                 sales_intent=int(sig["weight"] * 100),
