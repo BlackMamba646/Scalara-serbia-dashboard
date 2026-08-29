@@ -420,11 +420,12 @@ async def _detect_regulator_changes(
     events: list[BaseChangeEvent] = []
 
     for acct, data in current_accts.items():
+        company_name = data.get("licence_account_name", acct)
         if acct not in db_map:
             events.append(BaseChangeEvent(
                 event_type="new",
                 entity_type="ukgc_business",
-                entity_id=acct,
+                entity_id=company_name,
                 field_name=None,
                 old_value=None,
                 new_value=data,
@@ -438,7 +439,7 @@ async def _detect_regulator_changes(
                 events.append(BaseChangeEvent(
                     event_type="modified",
                     entity_type="ukgc_business",
-                    entity_id=acct,
+                    entity_id=company_name,
                     field_name="status",
                     old_value=db_status,
                     new_value=csv_status,
@@ -447,12 +448,17 @@ async def _detect_regulator_changes(
 
     for acct, lic in db_map.items():
         if acct not in current_accts:
+            company_result = await session.execute(
+                select(Company).where(Company.id == lic.company_id)
+            )
+            company = company_result.scalar_one_or_none()
+            company_name = (company.canonical_name if company else None) or lic.legal_entity_name or acct
             events.append(BaseChangeEvent(
                 event_type="removed",
                 entity_type="ukgc_business",
-                entity_id=acct,
+                entity_id=company_name,
                 field_name=None,
-                old_value={"licence_account_name": lic.legal_entity_name, "status": lic.license_status},
+                old_value={"licence_account_name": company_name, "status": lic.license_status},
                 new_value=None,
                 source_url="https://www.gamblingcommission.gov.uk",
             ))
