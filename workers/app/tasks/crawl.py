@@ -11,7 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.connectors.base import BaseConnector, NormalizedRecord
+from app.connectors.base import BaseConnector, ChangeEvent, NormalizedRecord
 from app.connectors.registry import get_connector, CONNECTOR_REGISTRY
 from app.models.database import async_session
 from app.models.tables import (
@@ -27,6 +27,35 @@ from app.models.tables import (
 from app.pipeline.signal_extractor import extract_signals_from_change, SIGNAL_WEIGHTS
 
 logger = logging.getLogger(__name__)
+
+EXTRACTOR_TO_DB_TYPE = {
+    "new_license": "new_license",
+    "license_revoked": "license_change",
+    "license_suspended": "license_suspension",
+    "license_renewed": "license_change",
+    "license_condition_change": "license_change",
+    "new_market_entry": "market_expansion",
+    "market_exit": "market_expansion",
+    "provider_change": "provider_change",
+    "new_product_launch": "new_product",
+    "partnership": "new_tech_partner",
+    "acquisition": "acquisition",
+    "funding": "funding",
+    "ipo": "funding",
+    "hiring_surge": "hiring_surge",
+    "key_hire": "hiring_surge",
+    "layoffs": "hiring_surge",
+    "executive_change": "hiring_surge",
+    "rfp_issued": "rfp",
+    "technology_migration": "platform_migration",
+    "regulatory_action": "regulatory_change",
+    "compliance_issue": "regulatory_change",
+    "expansion": "market_expansion",
+    "soft_launch": "soft_launch",
+    "platform_pain": "platform_pain",
+    "platform_migration": "platform_migration",
+    "payments_need": "payments_need",
+}
 
 
 async def ensure_sources_exist(session: AsyncSession) -> dict[str, uuid.UUID]:
@@ -220,6 +249,51 @@ async def _persist_entity(
                 excerpt=data.get("summary", data.get("excerpt", "")),
                 content_hash=record.content_hash,
             ))
+
+            change = ChangeEvent(
+                event_type="new",
+                entity_type="news_article",
+                entity_id=url,
+                field_name=None,
+                old_value=None,
+                new_value=data,
+                source_url=url,
+            )
+            extracted = extract_signals_from_change(change)
+            for sig in extracted:
+                db_type = EXTRACTOR_TO_DB_TYPE.get(sig["signal_type"])
+                if not db_type:
+                    continue
+                sig_pub_dt = None
+                if sig.get("published_at"):
+                    try:
+                        sig_pub_dt = datetime.fromisoformat(str(sig["published_at"]))
+                    except ValueError:
+                        pass
+                if sig_pub_dt and sig_pub_dt.tzinfo is not None:
+                    sig_pub_dt = sig_pub_dt.replace(tzinfo=None)
+                if not sig_pub_dt:
+                    sig_pub_dt = pub_dt
+                sig_hash = record.content_hash + ":" + sig["signal_type"]
+                existing_sig = await session.execute(
+                    select(Signal).where(Signal.content_hash == sig_hash).limit(1)
+                )
+                if existing_sig.scalar_one_or_none():
+                    continue
+                company_id = None
+                entity_name = sig.get("entity_name", "")
+                if entity_name:
+                    company_id = await get_or_create_company(session, entity_name)
+                session.add(Signal(
+                    company_id=company_id or await get_or_create_company(session, publisher or record.source_name),
+                    signal_type=db_type,
+                    title=sig["title"],
+                    summary=sig["description"],
+                    evidence_confidence=int(sig["confidence"] * 100),
+                    sales_intent=int(sig["weight"] * 100),
+                    published_at=sig_pub_dt,
+                    content_hash=sig_hash,
+                ))
 
     elif record.record_type in ("ukgc_business", "ukgc_businesses", "gcgra_licensee"):
         entity_name = data.get("licence_account_name", data.get("name", data.get("licensee_name", "Unknown")))
