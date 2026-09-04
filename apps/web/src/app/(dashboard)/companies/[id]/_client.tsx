@@ -839,7 +839,7 @@ function DocumentsList({ documents }: { documents: CompanyData["documents"] }) {
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium">
               {doc.webUrl ? (
-                <a href={doc.webUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                <a href={`/api/documents/${doc.id}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
                   {doc.name}
                 </a>
               ) : (
@@ -858,7 +858,7 @@ function DocumentsList({ documents }: { documents: CompanyData["documents"] }) {
             </div>
           </div>
           {doc.webUrl && (
-            <a href={doc.webUrl} target="_blank" rel="noopener noreferrer">
+            <a href={`/api/documents/${doc.id}`} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
             </a>
           )}

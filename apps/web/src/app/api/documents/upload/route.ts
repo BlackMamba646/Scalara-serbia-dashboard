@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     const blob = await put(`documents/${companyId}/${file.name}`, file, {
-      access: "public",
+      access: "private",
     });
 
     const [doc] = await db
