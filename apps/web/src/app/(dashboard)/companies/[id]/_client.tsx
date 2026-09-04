@@ -39,6 +39,8 @@ import {
   FileText,
   Clock,
   Star,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import {
   updateCompany,
@@ -130,6 +132,7 @@ type CompanyData = {
     documentType: string;
     name: string;
     webUrl: string | null;
+    fileSize: number | null;
     ndaStatus: string | null;
     createdAt: Date;
   }>;
@@ -253,7 +256,8 @@ export function CompanyAccountClient({ data }: { data: CompanyData }) {
               <MeetingsList meetings={meetings} />
             </TabsContent>
 
-            <TabsContent value="documents" className="mt-4">
+            <TabsContent value="documents" className="mt-4 space-y-3">
+              <UploadDocumentForm companyId={company.id} />
               <DocumentsList documents={documents} />
             </TabsContent>
           </Tabs>
@@ -714,6 +718,77 @@ function MeetingsList({ meetings }: { meetings: CompanyData["meetings"] }) {
   );
 }
 
+function UploadDocumentForm({ companyId }: { companyId: string }) {
+  const [open, setOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setUploading(true);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    formData.set("companyId", companyId);
+
+    const file = formData.get("file") as File | null;
+    if (!formData.get("name") && file) {
+      formData.set("name", file.name);
+    }
+
+    await fetch("/api/documents/upload", { method: "POST", body: formData });
+    setUploading(false);
+    setOpen(false);
+    window.location.reload();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" variant="outline" />}>
+        <Upload className="h-3.5 w-3.5 mr-1" /> Upload Document
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Upload Document</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input name="file" type="file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg" />
+          <Input name="name" placeholder="Document name (optional)" />
+          <Select name="documentType" defaultValue="other">
+            <SelectTrigger>
+              <SelectValue placeholder="Document type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="proposal">Proposal</SelectItem>
+              <SelectItem value="contract">Contract</SelectItem>
+              <SelectItem value="nda">NDA</SelectItem>
+              <SelectItem value="commercial">Commercial</SelectItem>
+              <SelectItem value="presentation">Presentation</SelectItem>
+              <SelectItem value="meeting">Meeting Notes</SelectItem>
+              <SelectItem value="legal">Legal</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button type="submit" disabled={uploading} className="w-full">
+            {uploading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Uploading...
+              </>
+            ) : (
+              "Upload"
+            )}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function formatFileSize(bytes: number | null) {
+  if (bytes == null) return null;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function DocumentsList({ documents }: { documents: CompanyData["documents"] }) {
   if (documents.length === 0) {
     return (
@@ -729,17 +804,30 @@ function DocumentsList({ documents }: { documents: CompanyData["documents"] }) {
         <div key={doc.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent/30 transition-colors">
           <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium">{doc.name}</div>
+            <div className="text-sm font-medium">
+              {doc.webUrl ? (
+                <a href={doc.webUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                  {doc.name}
+                </a>
+              ) : (
+                doc.name
+              )}
+            </div>
             <div className="flex items-center gap-2 mt-0.5">
               <Badge variant="secondary" className="text-[9px]">{doc.documentType}</Badge>
               {doc.ndaStatus && (
                 <Badge variant="outline" className="text-[9px]">NDA: {doc.ndaStatus}</Badge>
               )}
+              {doc.fileSize != null && (
+                <span className="text-[10px] text-muted-foreground">{formatFileSize(doc.fileSize)}</span>
+              )}
               <span className="text-[10px] text-muted-foreground">{formatDate(doc.createdAt)}</span>
             </div>
           </div>
           {doc.webUrl && (
-            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+            <a href={doc.webUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+            </a>
           )}
         </div>
       ))}
