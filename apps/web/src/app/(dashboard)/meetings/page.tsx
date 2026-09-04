@@ -3,24 +3,33 @@ export const dynamic = "force-dynamic";
 import { db } from "@/lib/db";
 import { meetings, companies } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { getGoogleAccount } from "@/lib/google";
 import { MeetingsClient } from "./_client";
 
 export default async function MeetingsPage() {
-  const data = await db
-    .select({
-      id: meetings.id,
-      title: meetings.title,
-      companyId: meetings.companyId,
-      companyName: companies.canonicalName,
-      startTime: meetings.startTime,
-      endTime: meetings.endTime,
-      status: meetings.status,
-      notes: meetings.notes,
-      summary: meetings.summary,
-    })
-    .from(meetings)
-    .leftJoin(companies, eq(meetings.companyId, companies.id))
-    .orderBy(desc(meetings.startTime));
+  const [data, googleAccount] = await Promise.all([
+    db
+      .select({
+        id: meetings.id,
+        title: meetings.title,
+        companyId: meetings.companyId,
+        companyName: companies.canonicalName,
+        startTime: meetings.startTime,
+        endTime: meetings.endTime,
+        status: meetings.status,
+        notes: meetings.notes,
+        summary: meetings.summary,
+      })
+      .from(meetings)
+      .leftJoin(companies, eq(meetings.companyId, companies.id))
+      .orderBy(desc(meetings.startTime)),
+    getGoogleAccount(),
+  ]);
 
-  return <MeetingsClient meetings={data} />;
+  return (
+    <MeetingsClient
+      meetings={data}
+      googleConnected={!!googleAccount}
+    />
+  );
 }

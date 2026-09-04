@@ -27,10 +27,12 @@ function isValidToken(token: string): boolean {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/login") {
-    const token = request.cookies.get(COOKIE_NAME)?.value;
-    if (token && isValidToken(token)) {
-      return NextResponse.redirect(new URL("/", request.url));
+  if (pathname === "/login" || pathname.startsWith("/api/auth/")) {
+    if (pathname === "/login") {
+      const token = request.cookies.get(COOKIE_NAME)?.value;
+      if (token && isValidToken(token)) {
+        return NextResponse.redirect(new URL("/", request.url));
+      }
     }
     return NextResponse.next();
   }
