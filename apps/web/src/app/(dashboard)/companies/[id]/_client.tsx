@@ -721,27 +721,47 @@ function MeetingsList({ meetings }: { meetings: CompanyData["meetings"] }) {
 function UploadDocumentForm({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [docType, setDocType] = useState("other");
+  const [error, setError] = useState<string | null>(null);
+  const [fileRef, setFileRef] = useState<File | null>(null);
+  const [docName, setDocName] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setUploading(true);
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    formData.set("companyId", companyId);
-
-    const file = formData.get("file") as File | null;
-    if (!formData.get("name") && file) {
-      formData.set("name", file.name);
+    if (!fileRef) {
+      setError("Please select a file");
+      return;
     }
+    setError(null);
+    setUploading(true);
 
-    await fetch("/api/documents/upload", { method: "POST", body: formData });
-    setUploading(false);
-    setOpen(false);
-    window.location.reload();
+    try {
+      const formData = new FormData();
+      formData.set("file", fileRef);
+      formData.set("companyId", companyId);
+      formData.set("documentType", docType);
+      formData.set("name", docName || fileRef.name);
+
+      const res = await fetch("/api/documents/upload", { method: "POST", body: formData });
+
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || `Upload failed (${res.status})`);
+      }
+
+      setOpen(false);
+      setFileRef(null);
+      setDocName("");
+      setDocType("other");
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+      setUploading(false);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setError(null); }}>
       <DialogTrigger render={<Button size="sm" variant="outline" />}>
         <Upload className="h-3.5 w-3.5 mr-1" /> Upload Document
       </DialogTrigger>
@@ -750,9 +770,19 @@ function UploadDocumentForm({ companyId }: { companyId: string }) {
           <DialogTitle>Upload Document</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input name="file" type="file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg" />
-          <Input name="name" placeholder="Document name (optional)" />
-          <Select name="documentType" defaultValue="other">
+          <input
+            type="file"
+            required
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg"
+            className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20 cursor-pointer"
+            onChange={(e) => setFileRef(e.target.files?.[0] ?? null)}
+          />
+          <Input
+            placeholder="Document name (optional)"
+            value={docName}
+            onChange={(e) => setDocName(e.target.value)}
+          />
+          <Select value={docType} onValueChange={(v) => v && setDocType(v)}>
             <SelectTrigger>
               <SelectValue placeholder="Document type" />
             </SelectTrigger>
@@ -767,6 +797,9 @@ function UploadDocumentForm({ companyId }: { companyId: string }) {
               <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
+          {error && (
+            <div className="text-sm text-destructive">{error}</div>
+          )}
           <Button type="submit" disabled={uploading} className="w-full">
             {uploading ? (
               <>
