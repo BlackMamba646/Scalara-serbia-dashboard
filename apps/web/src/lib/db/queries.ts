@@ -1,5 +1,5 @@
 import { db } from "./index";
-import { desc, eq, sql, and, gte, lte, count, isNull, or } from "drizzle-orm";
+import { desc, eq, sql, and, gte, lte, count, isNull, isNotNull, or } from "drizzle-orm";
 import {
   companies,
   signals,
@@ -106,6 +106,29 @@ export async function getCompanies(limit = 50, offset = 0) {
     .orderBy(desc(companies.updatedAt))
     .limit(limit)
     .offset(offset);
+}
+
+export async function getCrmAccounts() {
+  return db
+    .select({
+      id: companies.id,
+      canonicalName: companies.canonicalName,
+      legalName: companies.legalName,
+      country: companies.country,
+      companyType: companies.companyType,
+      employeeCount: companies.employeeCount,
+      websiteUrl: companies.websiteUrl,
+      industry: companies.industry,
+      lifecycleStage: companies.lifecycleStage,
+      estimatedValue: companies.estimatedValue,
+      accountOwner: companies.accountOwner,
+      lastActivityAt: companies.lastActivityAt,
+      nextActivityAt: companies.nextActivityAt,
+      updatedAt: companies.updatedAt,
+    })
+    .from(companies)
+    .where(isNotNull(companies.lifecycleStage))
+    .orderBy(desc(companies.lastActivityAt));
 }
 
 export async function getCompanyById(id: string) {

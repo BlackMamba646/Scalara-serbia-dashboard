@@ -58,7 +58,8 @@ const navItems = [
   {
     group: "CRM",
     items: [
-      { title: "CRM", href: "/crm", icon: LayoutDashboard },
+      { title: "Dashboard", href: "/crm", icon: LayoutDashboard },
+      { title: "Accounts", href: "/crm/accounts", icon: Building2 },
       { title: "Tasks", href: "/tasks", icon: CheckSquare },
       { title: "Meetings", href: "/meetings", icon: Calendar },
       { title: "Documents", href: "/documents", icon: FileText },
@@ -108,8 +109,8 @@ export function AppSidebar() {
               <SidebarMenu>
                 {group.items.map((item) => {
                   const isActive =
-                    item.href === "/"
-                      ? pathname === "/"
+                    item.href === "/" || item.href === "/crm"
+                      ? pathname === item.href
                       : pathname.startsWith(item.href);
                   return (
                     <SidebarMenuItem key={item.href}>

@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import {
   updateCompany,
+  addAsAccount,
   createContact,
   createActivity,
   createTask,
@@ -322,19 +323,34 @@ function CompanyHeader({ company }: { company: CompanyData["company"] }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Select value={stage} onValueChange={(v) => v && handleStageChange(v)} disabled={isPending}>
-              <SelectTrigger className="w-36 h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="lead">Lead</SelectItem>
-                <SelectItem value="prospect">Prospect</SelectItem>
-                <SelectItem value="qualified">Qualified</SelectItem>
-                <SelectItem value="customer">Customer</SelectItem>
-                <SelectItem value="churned">Churned</SelectItem>
-                <SelectItem value="partner">Partner</SelectItem>
-              </SelectContent>
-            </Select>
+            {company.lifecycleStage ? (
+              <Select value={stage} onValueChange={(v) => v && handleStageChange(v)} disabled={isPending}>
+                <SelectTrigger className="w-36 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lead">Lead</SelectItem>
+                  <SelectItem value="prospect">Prospect</SelectItem>
+                  <SelectItem value="qualified">Qualified</SelectItem>
+                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="churned">Churned</SelectItem>
+                  <SelectItem value="partner">Partner</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Button
+                size="sm"
+                disabled={isPending}
+                onClick={() =>
+                  startTransition(async () => {
+                    await addAsAccount(company.id);
+                  })
+                }
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                {isPending ? "Adding..." : "Add as Account"}
+              </Button>
+            )}
           </div>
         </div>
 

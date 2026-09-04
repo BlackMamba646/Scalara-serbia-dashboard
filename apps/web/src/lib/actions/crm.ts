@@ -43,6 +43,43 @@ export async function updateCompany(
   revalidatePath("/companies");
 }
 
+export async function addAsAccount(companyId: string) {
+  await db
+    .update(companies)
+    .set({
+      lifecycleStage: "lead",
+      lastActivityAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(companies.id, companyId));
+
+  await db.insert(activities).values({
+    activityType: "status_change",
+    title: "Added as CRM account",
+    description: "Company was added from Radar as a CRM account",
+    companyId,
+  });
+
+  revalidatePath(`/companies/${companyId}`);
+  revalidatePath("/companies");
+  revalidatePath("/crm");
+  revalidatePath("/crm/accounts");
+}
+
+export async function removeFromAccounts(companyId: string) {
+  await db
+    .update(companies)
+    .set({
+      lifecycleStage: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(companies.id, companyId));
+
+  revalidatePath(`/companies/${companyId}`);
+  revalidatePath("/crm");
+  revalidatePath("/crm/accounts");
+}
+
 // ─── Contacts ───────────────────────────────────────────
 
 export async function createContact(data: {
