@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { login } from "@/lib/actions/auth";
 import { ScalaraLogo } from "@/components/scalara-logo";
@@ -12,10 +12,19 @@ const googleErrors: Record<string, string> = {
   no_code: "No authorization code received.",
 };
 
-export default function LoginPage() {
-  const [state, formAction, isPending] = useActionState(login, null);
+function GoogleError() {
   const searchParams = useSearchParams();
   const googleError = searchParams.get("error");
+  if (!googleError) return null;
+  return (
+    <p className="text-sm text-destructive text-center">
+      {googleErrors[googleError] || "Authentication error."}
+    </p>
+  );
+}
+
+function LoginForm() {
+  const [state, formAction, isPending] = useActionState(login, null);
 
   return (
     <div className="min-h-dvh flex items-center justify-center bg-background px-4">
@@ -30,11 +39,9 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {googleError && (
-          <p className="text-sm text-destructive text-center">
-            {googleErrors[googleError] || "Authentication error."}
-          </p>
-        )}
+        <Suspense>
+          <GoogleError />
+        </Suspense>
 
         <a
           href="/api/auth/google"
@@ -100,4 +107,8 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+export default function LoginPage() {
+  return <LoginForm />;
 }
