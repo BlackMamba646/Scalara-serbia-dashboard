@@ -1,10 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Building2,
   Search,
@@ -12,7 +28,9 @@ import {
   Clock,
   DollarSign,
   Users,
+  Plus,
 } from "lucide-react";
+import { createAccount } from "@/lib/actions/crm";
 
 type Account = {
   id: string;
@@ -62,6 +80,72 @@ function formatValue(v: number | null) {
   }).format(v);
 }
 
+function AddAccountForm() {
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [companyType, setCompanyType] = useState("other");
+
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      await createAccount({
+        canonicalName: formData.get("canonicalName") as string,
+        legalName: (formData.get("legalName") as string) || undefined,
+        country: (formData.get("country") as string) || undefined,
+        companyType: companyType as "operator" | "vendor" | "studio" | "affiliate" | "regulator" | "other",
+        websiteUrl: (formData.get("websiteUrl") as string) || undefined,
+        linkedinUrl: (formData.get("linkedinUrl") as string) || undefined,
+        industry: (formData.get("industry") as string) || undefined,
+        description: (formData.get("description") as string) || undefined,
+        leadSource: (formData.get("leadSource") as string) || undefined,
+      });
+      setOpen(false);
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" />}>
+        <Plus className="h-4 w-4 mr-1" /> Add Account
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add New Account</DialogTitle>
+        </DialogHeader>
+        <form action={handleSubmit} className="space-y-4">
+          <Input name="canonicalName" placeholder="Company name *" required />
+          <Input name="legalName" placeholder="Legal name (if different)" />
+          <div className="grid grid-cols-2 gap-3">
+            <Input name="country" placeholder="Country" />
+            <Select value={companyType} onValueChange={(v) => v && setCompanyType(v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Company type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="operator">Operator</SelectItem>
+                <SelectItem value="vendor">Vendor</SelectItem>
+                <SelectItem value="studio">Studio</SelectItem>
+                <SelectItem value="affiliate">Affiliate</SelectItem>
+                <SelectItem value="regulator">Regulator</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input name="websiteUrl" placeholder="Website URL" />
+            <Input name="industry" placeholder="Industry" />
+          </div>
+          <Input name="linkedinUrl" placeholder="LinkedIn URL" />
+          <Input name="leadSource" placeholder="Lead source (e.g. referral, event)" />
+          <Textarea name="description" placeholder="Description..." rows={2} />
+          <Button type="submit" disabled={isPending} className="w-full">
+            {isPending ? "Creating..." : "Create Account"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function AccountsClient({ accounts }: { accounts: Account[] }) {
   const [search, setSearch] = useState("");
 
@@ -86,6 +170,7 @@ export function AccountsClient({ accounts }: { accounts: Account[] }) {
             {accounts.length} companies added to CRM
           </p>
         </div>
+        <AddAccountForm />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -118,7 +203,7 @@ export function AccountsClient({ accounts }: { accounts: Account[] }) {
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-sm text-muted-foreground">
           {accounts.length === 0
-            ? 'No accounts yet. Go to a company page and click "Add as Account" to get started.'
+            ? 'No accounts yet. Click "Add Account" to create one, or go to a company page and click "Add as Account".'
             : "No accounts match your search."}
         </div>
       ) : (

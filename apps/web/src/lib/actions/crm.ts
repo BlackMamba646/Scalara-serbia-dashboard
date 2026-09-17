@@ -43,6 +43,39 @@ export async function updateCompany(
   revalidatePath("/companies");
 }
 
+export async function createAccount(data: {
+  canonicalName: string;
+  legalName?: string;
+  country?: string;
+  companyType?: "operator" | "vendor" | "studio" | "affiliate" | "regulator" | "other";
+  websiteUrl?: string;
+  linkedinUrl?: string;
+  industry?: string;
+  description?: string;
+  leadSource?: string;
+  accountOwner?: string;
+}) {
+  const [result] = await db
+    .insert(companies)
+    .values({
+      ...data,
+      lifecycleStage: "lead",
+      lastActivityAt: new Date(),
+    })
+    .returning({ id: companies.id });
+
+  await db.insert(activities).values({
+    activityType: "status_change",
+    title: "Account created",
+    description: "Company was manually added as a CRM account",
+    companyId: result.id,
+  });
+
+  revalidatePath("/crm/accounts");
+  revalidatePath("/companies");
+  return result;
+}
+
 export async function addAsAccount(companyId: string) {
   await db
     .update(companies)
