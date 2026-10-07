@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { Search, ExternalLink } from "lucide-react";
 
 type SignalRow = {
   id: string;
@@ -24,6 +24,7 @@ type SignalRow = {
   detectedAt: Date;
   publishedAt: Date | null;
   isVerified: boolean;
+  metadata: Record<string, unknown> | null;
 };
 
 const signalTypeColors: Record<string, string> = {
@@ -256,7 +257,21 @@ function SignalCard({ signal }: { signal: SignalRow }) {
                 </span>
               )}
             </div>
-            <h3 className="text-sm font-medium mb-1">{signal.title}</h3>
+            {signal.metadata?.source_url ? (
+              <h3 className="text-sm font-medium mb-1">
+                <a
+                  href={String(signal.metadata.source_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline inline-flex items-center gap-1"
+                >
+                  {signal.title}
+                  <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                </a>
+              </h3>
+            ) : (
+              <h3 className="text-sm font-medium mb-1">{signal.title}</h3>
+            )}
             <p className="text-xs text-muted-foreground line-clamp-2">
               {signal.summary}
             </p>

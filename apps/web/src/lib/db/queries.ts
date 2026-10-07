@@ -14,6 +14,7 @@ import {
   tasks,
   meetings,
   documents,
+  leads,
 } from "./schema";
 
 export async function getHotOpportunities(limit = 10) {
@@ -40,7 +41,7 @@ export async function getHotOpportunities(limit = 10) {
     .limit(limit);
 }
 
-export async function getRecentSignals(limit = 20) {
+export async function getRecentSignals(limit = 500) {
   return db
     .select({
       id: signals.id,
@@ -54,6 +55,7 @@ export async function getRecentSignals(limit = 20) {
       detectedAt: signals.detectedAt,
       publishedAt: signals.publishedAt,
       isVerified: signals.isVerified,
+      metadata: signals.metadata,
     })
     .from(signals)
     .innerJoin(companies, eq(signals.companyId, companies.id))
@@ -388,6 +390,41 @@ export async function getCrmMetrics() {
     upcomingMeetings: upcomingMeetings[0]?.count ?? 0,
     totalContacts: totalContacts[0]?.count ?? 0,
     pipelineValue: pipelineValue[0]?.total ?? 0,
+  };
+}
+
+// ─── Leads Queries ─────────────────────────────────────
+
+export async function getLeads() {
+  return db
+    .select()
+    .from(leads)
+    .orderBy(desc(leads.createdAt));
+}
+
+export async function getLeadById(id: string) {
+  const result = await db
+    .select()
+    .from(leads)
+    .where(eq(leads.id, id))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function getLeadMetrics() {
+  const [total, newLeads, contacted, qualified, converted] = await Promise.all([
+    db.select({ count: count() }).from(leads),
+    db.select({ count: count() }).from(leads).where(eq(leads.status, "new")),
+    db.select({ count: count() }).from(leads).where(eq(leads.status, "contacted")),
+    db.select({ count: count() }).from(leads).where(eq(leads.status, "qualified")),
+    db.select({ count: count() }).from(leads).where(eq(leads.status, "converted")),
+  ]);
+  return {
+    total: total[0]?.count ?? 0,
+    new: newLeads[0]?.count ?? 0,
+    contacted: contacted[0]?.count ?? 0,
+    qualified: qualified[0]?.count ?? 0,
+    converted: converted[0]?.count ?? 0,
   };
 }
 

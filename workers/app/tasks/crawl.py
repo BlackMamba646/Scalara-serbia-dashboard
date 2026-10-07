@@ -285,8 +285,10 @@ async def _persist_entity(
                 entity_name = sig.get("entity_name", "")
                 if entity_name:
                     company_id = await get_or_create_company(session, entity_name)
+                if not company_id:
+                    continue
                 session.add(Signal(
-                    company_id=company_id or await get_or_create_company(session, publisher or record.source_name),
+                    company_id=company_id,
                     signal_type=db_type,
                     title=sig["title"],
                     summary=sig["description"],
@@ -294,6 +296,7 @@ async def _persist_entity(
                     sales_intent=int(sig["weight"] * 100),
                     published_at=sig_pub_dt,
                     content_hash=sig_hash,
+                    metadata_={"source_url": url},
                 ))
 
     elif record.record_type in ("ukgc_business", "ukgc_businesses", "gcgra_licensee"):
@@ -558,6 +561,7 @@ async def _detect_and_signal(
                 sales_intent=int(sig["weight"] * 100),
                 published_at=pub_dt,
                 content_hash=sig_hash,
+                metadata_={"source_url": event.source_url or ""},
             ))
             signal_count += 1
 

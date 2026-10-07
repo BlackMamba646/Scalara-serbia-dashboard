@@ -60,6 +60,7 @@ const navItems = [
     items: [
       { title: "Dashboard", href: "/crm", icon: LayoutDashboard },
       { title: "Accounts", href: "/crm/accounts", icon: Building2 },
+      { title: "Leads", href: "/crm/leads", icon: Mail },
       { title: "Tasks", href: "/tasks", icon: CheckSquare },
       { title: "Meetings", href: "/meetings", icon: Calendar },
       { title: "Documents", href: "/documents", icon: FileText },

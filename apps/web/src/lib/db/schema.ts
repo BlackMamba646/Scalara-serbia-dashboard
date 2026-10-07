@@ -939,6 +939,45 @@ export const documents = pgTable(
   ]
 );
 
+// ─── Leads ──────────────────────────────────────────────
+
+export const leadStatusEnum = pgEnum("lead_status", [
+  "new",
+  "contacted",
+  "qualified",
+  "converted",
+  "lost",
+]);
+
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    refId: text("ref_id").notNull().unique(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    company: text("company"),
+    website: text("website"),
+    description: text("description"),
+    leadSource: text("lead_source"),
+    status: leadStatusEnum("status").default("new").notNull(),
+    assignedTo: text("assigned_to"),
+    companyId: uuid("company_id").references(() => companies.id, {
+      onDelete: "set null",
+    }),
+    gmailMessageId: text("gmail_message_id"),
+    gmailThreadId: text("gmail_thread_id"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_leads_status").on(t.status),
+    index("idx_leads_email").on(t.email),
+    index("idx_leads_ref").on(t.refId),
+  ]
+);
+
 // ─── Google OAuth Accounts ─────────────────────────────
 
 export const googleAccounts = pgTable("google_accounts", {

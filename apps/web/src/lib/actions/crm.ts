@@ -11,6 +11,7 @@ import {
   tasks,
   meetings,
   documents,
+  leads,
 } from "@/lib/db/schema";
 
 // ─── Companies ──────────────────────────────────────────
@@ -321,4 +322,32 @@ export async function createDocument(data: {
   const [result] = await db.insert(documents).values(data).returning({ id: documents.id });
   if (data.companyId) revalidatePath(`/companies/${data.companyId}`);
   return result;
+}
+
+// ─── Leads ─────────────────────────────────────────────
+
+export async function updateLead(
+  id: string,
+  data: {
+    name?: string;
+    email?: string;
+    company?: string | null;
+    website?: string | null;
+    description?: string | null;
+    leadSource?: string | null;
+    status?: "new" | "contacted" | "qualified" | "converted" | "lost";
+    assignedTo?: string | null;
+    notes?: string | null;
+  }
+) {
+  await db
+    .update(leads)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(leads.id, id));
+  revalidatePath("/crm/leads");
+}
+
+export async function deleteLead(id: string) {
+  await db.delete(leads).where(eq(leads.id, id));
+  revalidatePath("/crm/leads");
 }
